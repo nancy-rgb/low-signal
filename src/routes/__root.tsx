@@ -127,6 +127,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
   const qc = useQueryClient();
   const router = useRouter();
   useEnsureKeypair();
+  useBindE2EEToPin();
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       qc.invalidateQueries();
