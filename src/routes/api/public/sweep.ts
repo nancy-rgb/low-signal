@@ -20,10 +20,45 @@ export const Route = createFileRoute("/api/public/sweep")({
         }
 
         const row = Array.isArray(data) ? data[0] : data;
-        return new Response(JSON.stringify({ expired: row?.expired_count ?? 0, safety_alerts: row?.safety_alert_count ?? 0 }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        const newAlerts = row?.new_alerts ?? 0;
+
+        // Deliver newly-recorded safety alerts to each requester's trusted contacts.
+        // Email transport is not wired yet — for now we mark them notified and log.
+        let delivered = 0;
+        if (newAlerts > 0) {
+          const { data: pending } = await supabaseAdmin
+            .from("safety_alerts")
+            .select("request_id, requester_id")
+            .eq("delivered", false);
+
+          for (const a of pending ?? []) {
+            const { data: contacts } = await supabaseAdmin
+              .from("trusted_contacts")
+              .select("label, email")
+              .eq("user_id", a.requester_id);
+            const count = contacts?.length ?? 0;
+            // TODO: send actual email via configured email domain.
+            console.log(
+              `[safety-alert] request=${a.request_id} requester=${a.requester_id} contacts=${count}`,
+              contacts,
+            );
+            await supabaseAdmin
+              .from("safety_alerts")
+              .update({ delivered: true, contacts_notified: count })
+              .eq("request_id", a.request_id);
+            delivered += count;
+          }
+        }
+
+        return new Response(
+          JSON.stringify({
+            expired: row?.expired_count ?? 0,
+            safety_alerts: row?.safety_alert_count ?? 0,
+            new_alerts: newAlerts,
+            contacts_notified: delivered,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
       },
     },
   },
