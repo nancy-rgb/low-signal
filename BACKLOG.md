@@ -17,15 +17,32 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Duress mode (decoy empty state via duress PIN) — v0.3
 - Safety timer (per-request check-in deadline + trusted contact) — v0.3
 
-## Next up
-- Wire to Lovable Cloud
-  - Auth (anonymous + magic link for recovery)
-  - Real groups with server-enforced visibility (RLS)
-  - Realtime requests, messages, check-ins
-  - Cron sweep for expired requests / missed safety timers
-- True end-to-end encryption for messages (libsignal or age-encryption style key exchange)
+## Done (Phase 1 — Cloud auth & schema)
+- Lovable Cloud wired: profiles, groups, requests, claims, offers tables with RLS
+- Google OAuth + email/password auth
+- Auto-profile creation on signup
+- AuthGate component + useAuth hook
+
+## Done (Phase 2 — Live data)
+- React Query data layer (`src/lib/data.ts`) for all entities
+- All routes fetch from Supabase instead of local store
+- Nearby volunteer discovery with coarse location privacy
+- Group join via invite code (server-enforced)
+
+## Done (Phase 3 — Realtime, check-ins, messages, sweep)
+- `check_ins` table with RLS + realtime (on_the_way, arrived, delayed, safe, custom)
+- `messages` table with RLS + realtime (client-encrypted ready)
+- Check-in buttons + history in request detail
+- Message thread (chat UI) in request detail
+- Safety timer banner with overdue alerts
+- Realtime subscriptions for live updates on request detail
+- `/api/public/sweep` cron endpoint for expired requests + safety deadline alerts
+
+## Next up (Phase 4)
+- True end-to-end encryption for messages (Signal-style key exchange)
 - Push notifications without sensitive content in payload
 - Background safety-timer alerts (notify trusted contact server-side if deadline passes)
+- Attach Supabase auth to server functions (for admin/moderator routes)
 
 ## Backlog
 - Volunteer skill tags (medical, legal, driver, translator) → smarter routing
@@ -51,8 +68,6 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Persistent stable handles across requests by default
 
 ## Phase 2 deferred (v0.5)
-- Restore safety timer + check-ins (move to a `check_ins` table with realtime).
-- Restore in-band messages (encrypted, server-stored, realtime).
 - Column-level location guard: enforce server-side that lat_exact/lng_exact only resolve for requester + approved volunteer (currently enforced in app code).
 - Geohash bucketing in DB to scale nearby filtering past prototype size.
 - Group request feed = group_id IS NOT NULL but requires `lat_coarse` filtering by region.

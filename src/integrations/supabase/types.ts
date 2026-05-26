@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      check_ins: {
+        Row: {
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["check_in_kind"]
+          note: string | null
+          request_id: string
+          sender_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["check_in_kind"]
+          note?: string | null
+          request_id: string
+          sender_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["check_in_kind"]
+          note?: string | null
+          request_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -72,6 +107,38 @@ export type Database = {
           region_label?: string | null
         }
         Relationships: []
+      }
+      messages: {
+        Row: {
+          ciphertext: string
+          created_at: string
+          id: string
+          request_id: string
+          sender_id: string
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string
+          id?: string
+          request_id: string
+          sender_id: string
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string
+          id?: string
+          request_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       offers: {
         Row: {
@@ -284,14 +351,26 @@ export type Database = {
         Args: { _group: string; _user: string }
         Returns: boolean
       }
+      is_request_participant: {
+        Args: { _req: string; _user: string }
+        Returns: boolean
+      }
       is_request_requester: {
         Args: { _req: string; _user: string }
         Returns: boolean
       }
       join_group_by_code: { Args: { _code: string }; Returns: string }
+      sweep_expired_requests: {
+        Args: never
+        Returns: {
+          expired_count: number
+          safety_alert_count: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "coordinator" | "volunteer" | "member"
+      check_in_kind: "on_the_way" | "arrived" | "delayed" | "safe" | "custom"
       help_type:
         | "safe_shelter"
         | "secure_travel"
@@ -437,6 +516,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "coordinator", "volunteer", "member"],
+      check_in_kind: ["on_the_way", "arrived", "delayed", "safe", "custom"],
       help_type: [
         "safe_shelter",
         "secure_travel",

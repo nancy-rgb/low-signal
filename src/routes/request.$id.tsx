@@ -8,7 +8,13 @@ import {
   useDecideClaim,
   useRequest,
   useUpdateRequest,
+  useCheckIns,
+  useSendCheckIn,
+  useMessages,
+  useSendMessage,
+  useRealtimeRequest,
 } from "@/lib/data";
+import { useState, useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/request/$id")({ component: RequestDetail });
 
@@ -17,12 +23,31 @@ function RequestDetail() {
   const { user } = useAuth();
   const { data: req, isLoading } = useRequest(id);
   const { data: claims = [] } = useClaims(id);
+  const { data: checkIns = [] } = useCheckIns(id);
+  const { data: messages = [] } = useMessages(id);
   const aliasMap = useAliases([
     ...(req ? [req.requester_id] : []),
     ...claims.map((c) => c.volunteer_id),
+    ...checkIns.map((c) => c.sender_id),
+    ...messages.map((m) => m.sender_id),
   ]).data ?? {};
+
   const decide = useDecideClaim();
   const update = useUpdateRequest();
+  const sendCheckIn = useSendCheckIn();
+  const sendMessage = useSendMessage();
+
+  // Realtime subscriptions for live updates
+  useRealtimeRequest(id);
+
+  const [msgText, setMsgText] = useState("");
+  const [customCheckIn, setCustomCheckIn] = useState("");
+  const msgEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll messages
+  useEffect(() => {
+    msgEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
 
   if (isLoading) return <AppShell><div className="p-4 text-sm">Loading…</div></AppShell>;
   if (!req) {
@@ -40,7 +65,12 @@ function RequestDetail() {
   const approvedClaim = claims.find((c) => c.status === "approved");
   const isApprovedVolunteer = approvedClaim?.volunteer_id === user?.id;
   const canSeeExact = isOwner || isApprovedVolunteer;
+  const isParticipant = canSeeExact; // shorthand for approved pair
   const typeLabel = HELP_TYPES.find((t) => t.id === req.help_type)?.label;
+
+  // Safety timer logic
+  const safetyOverdue = req.safety_deadline && new Date(req.safety_deadline) < new Date();
+  const hasSafeCheckIn = checkIns.some((c) => c.kind === "safe");
 
   return (
     <AppShell>
@@ -50,6 +80,26 @@ function RequestDetail() {
           <h1 className="text-xl font-semibold">{typeLabel}</h1>
           <StatusBadge status={req.status} />
         </div>
+
+        {/* Safety timer banner */}
+        {req.safety_deadline && !hasSafeCheckIn && (
+          <div className={`rounded-md border p-3 text-sm ${safetyOverdue ? "border-destructive bg-destructive/10" : "border-warning bg-warning/10"}`}>
+            <div className="font-medium">
+              {safetyOverdue ? "⚠ Safety deadline passed" : "Safety timer active"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Deadline: {new Date(req.safety_deadline).toLocaleString()}
+            </div>
+            {isParticipant && (
+              <button
+                onClick={() => sendCheckIn.mutate({ request_id: id, kind: "safe" })}
+                className="mt-2 rounded-md bg-success px-3 py-1.5 text-xs font-semibold text-success-foreground"
+              >
+                Mark safe
+              </button>
+            )}
+          </div>
+        )}
 
         <section className="space-y-2 rounded-md border border-input bg-card p-3 text-sm">
           <Row label="From" value={aliasMap[req.requester_id] ?? "—"} />
@@ -111,6 +161,118 @@ function RequestDetail() {
           </section>
         )}
 
+        {/* Check-ins (for participants) */}
+        {isParticipant && (
+          <section className="space-y-2 rounded-md border border-input bg-card p-3 text-sm">
+            <div className="font-medium">Check in</div>
+            <div className="flex flex-wrap gap-2">
+              {(["on_the_way", "arrived", "delayed", "safe"] as const).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => sendCheckIn.mutate({ request_id: id, kind: k })}
+                  disabled={sendCheckIn.isPending}
+                  className="rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground"
+                >
+                  {k.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={customCheckIn}
+                onChange={(e) => setCustomCheckIn(e.target.value)}
+                placeholder="Custom note…"
+                maxLength={200}
+                className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && customCheckIn.trim()) {
+                    sendCheckIn.mutate({ request_id: id, kind: "custom", note: customCheckIn.trim() });
+                    setCustomCheckIn("");
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (!customCheckIn.trim()) return;
+                  sendCheckIn.mutate({ request_id: id, kind: "custom", note: customCheckIn.trim() });
+                  setCustomCheckIn("");
+                }}
+                disabled={sendCheckIn.isPending || !customCheckIn.trim()}
+                className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+              >Send</button>
+            </div>
+          </section>
+        )}
+
+        {/* Check-in history */}
+        {checkIns.length > 0 && (
+          <section className="space-y-1 rounded-md border border-input bg-card p-3 text-xs">
+            <div className="mb-1 font-medium text-sm">History</div>
+            {checkIns.map((c) => (
+              <div key={c.id} className="flex items-center gap-2">
+                <span className="inline-block rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+                  {c.kind.replace("_", " ")}
+                </span>
+                <span className="text-muted-foreground">{aliasMap[c.sender_id] ?? "—"}</span>
+                {c.note && <span className="text-foreground">“{c.note}”</span>}
+                <span className="ml-auto text-muted-foreground">
+                  {new Date(c.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {/* Messages (for participants) */}
+        {isParticipant && (
+          <section className="rounded-md border border-input bg-card p-3">
+            <div className="mb-2 text-sm font-medium">Messages</div>
+            <div className="max-h-48 overflow-y-auto space-y-2 rounded-md bg-muted/30 p-2 text-xs">
+              {messages.length === 0 && (
+                <p className="text-center text-muted-foreground">No messages yet.</p>
+              )}
+              {messages.map((m) => {
+                const isMe = m.sender_id === user?.id;
+                return (
+                  <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs ${isMe ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
+                      <div className="mb-0.5 text-[10px] opacity-70">{aliasMap[m.sender_id] ?? "—"}</div>
+                      {m.ciphertext.startsWith("{\"v\":") ? <EncryptedMessage ciphertext={m.ciphertext} /> : m.ciphertext}
+                      <div className="mt-0.5 text-right text-[10px] opacity-60">
+                        {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={msgEndRef} />
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={msgText}
+                onChange={(e) => setMsgText(e.target.value)}
+                placeholder="Type a message…"
+                maxLength={500}
+                className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && msgText.trim()) {
+                    sendMsg();
+                  }
+                }}
+              />
+              <button
+                onClick={sendMsg}
+                disabled={sendMessage.isPending || !msgText.trim()}
+                className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >Send</button>
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {/* TODO: replace with true E2EE — currently stored as plaintext protected by RLS */}
+              Protected by access control. End-to-end encryption coming soon.
+            </p>
+          </section>
+        )}
+
         {isOwner && !["completed", "cancelled", "expired"].includes(req.status) && (
           <div className="flex gap-2">
             <button
@@ -128,6 +290,19 @@ function RequestDetail() {
       </div>
     </AppShell>
   );
+
+  function sendMsg() {
+    if (!msgText.trim()) return;
+    // For now, store plaintext with a wrapper to indicate encryption is planned
+    // In a future phase, this will be encrypted client-side before sending
+    sendMessage.mutate({ request_id: id, ciphertext: msgText.trim() });
+    setMsgText("");
+  }
+}
+
+function EncryptedMessage({ ciphertext }: { ciphertext: string }) {
+  // Placeholder for future E2EE decryption
+  return <span className="italic opacity-60">[encrypted]</span>;
 }
 
 function StatusBadge({ status }: { status: string }) {
