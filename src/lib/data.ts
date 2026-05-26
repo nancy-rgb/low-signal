@@ -121,7 +121,7 @@ export function useUpdateProfile() {
   const qc = useQueryClient();
   const uid = useUserId();
   return useMutation({
-    mutationFn: async (patch: { alias?: string; trusted_contact?: string }) => {
+    mutationFn: async (patch: { alias?: string }) => {
       if (!uid) throw new Error("not signed in");
       const { error } = await supabase
         .from("profiles")
