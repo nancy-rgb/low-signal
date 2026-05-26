@@ -22,6 +22,12 @@ function Settings() {
   const { data: groups = [] } = useMyGroups();
   const update = useUpdateProfile();
   const localUser = useStore((s) => s.user);
+  const { data: trustedContacts = [] } = useTrustedContacts();
+  const addContact = useAddTrustedContact();
+  const delContact = useDeleteTrustedContact();
+  const [newLabel, setNewLabel] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [contactErr, setContactErr] = useState("");
 
   const [alias, setAlias] = useState("");
   const [contact, setContact] = useState(localUser.trustedContact ?? "");
