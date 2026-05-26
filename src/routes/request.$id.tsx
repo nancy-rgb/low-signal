@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
   HELP_TYPES,
@@ -7,6 +7,7 @@ import {
   useStore,
   formatLoc,
   type CheckInKind,
+  type HelpRequest,
 } from "@/lib/requests-store";
 
 export const Route = createFileRoute("/request/$id")({
