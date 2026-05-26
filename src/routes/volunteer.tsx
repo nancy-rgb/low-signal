@@ -72,6 +72,19 @@ function VolunteerHome() {
           <input type="range" min={1} max={200} value={radius} onChange={(e) => setRadius(+e.target.value)} className="w-full" />
         </label>
 
+        {mySkills.length > 0 && (
+          <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={skillOnly}
+              onChange={(e) => setSkillOnly(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Match my skills ({mySkills.join(", ")})
+          </label>
+        )}
+
+
         <ul className="mt-2 flex flex-col gap-2">
           {list.length === 0 && (
             <li className="text-sm text-muted-foreground">No open requests in range.</li>
