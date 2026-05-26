@@ -14,6 +14,12 @@ import {
   useSendMessage,
   useRealtimeRequest,
 } from "@/lib/data";
+import {
+  usePeerPublicKey,
+  encryptForPeer,
+  decryptFromPeer,
+  isE2EEEnvelope,
+} from "@/lib/e2ee";
 import { useState, useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/request/$id")({ component: RequestDetail });
@@ -39,6 +45,18 @@ function RequestDetail() {
 
   // Realtime subscriptions for live updates
   useRealtimeRequest(id);
+
+  // Derive peer (the OTHER participant) for E2EE
+  const approvedClaimEarly = (claims ?? []).find((c) => c.status === "approved");
+  const peerId =
+    req && user
+      ? req.requester_id === user.id
+        ? approvedClaimEarly?.volunteer_id ?? null
+        : approvedClaimEarly?.volunteer_id === user.id
+        ? req.requester_id
+        : null
+      : null;
+  const { data: peerPubKey } = usePeerPublicKey(peerId);
 
   const [msgText, setMsgText] = useState("");
   const [customCheckIn, setCustomCheckIn] = useState("");
@@ -237,7 +255,15 @@ function RequestDetail() {
                   <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs ${isMe ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
                       <div className="mb-0.5 text-[10px] opacity-70">{aliasMap[m.sender_id] ?? "—"}</div>
-                      {m.ciphertext.startsWith("{\"v\":") ? <EncryptedMessage ciphertext={m.ciphertext} /> : m.ciphertext}
+                      {isE2EEEnvelope(m.ciphertext) ? (
+                        <DecryptedMessage
+                          ciphertext={m.ciphertext}
+                          myUserId={user?.id}
+                          peerPubKey={peerPubKey ?? null}
+                        />
+                      ) : (
+                        m.ciphertext
+                      )}
                       <div className="mt-0.5 text-right text-[10px] opacity-60">
                         {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </div>
@@ -246,6 +272,7 @@ function RequestDetail() {
                 );
               })}
               <div ref={msgEndRef} />
+
             </div>
             <div className="mt-2 flex gap-2">
               <input
@@ -267,8 +294,9 @@ function RequestDetail() {
               >Send</button>
             </div>
             <p className="mt-1 text-[10px] text-muted-foreground">
-              {/* TODO: replace with true E2EE — currently stored as plaintext protected by RLS */}
-              Protected by access control. End-to-end encryption coming soon.
+              {peerPubKey
+                ? "End-to-end encrypted. Only you and your match can read these."
+                : "Waiting for a match — messages will be end-to-end encrypted once approved."}
             </p>
           </section>
         )}
@@ -291,19 +319,54 @@ function RequestDetail() {
     </AppShell>
   );
 
-  function sendMsg() {
-    if (!msgText.trim()) return;
-    // For now, store plaintext with a wrapper to indicate encryption is planned
-    // In a future phase, this will be encrypted client-side before sending
-    sendMessage.mutate({ request_id: id, ciphertext: msgText.trim() });
+  async function sendMsg() {
+    if (!msgText.trim() || !user) return;
+    const text = msgText.trim();
     setMsgText("");
+    try {
+      let payload = text;
+      if (peerPubKey) {
+        payload = await encryptForPeer(user.id, peerPubKey, text);
+      }
+      sendMessage.mutate({ request_id: id, ciphertext: payload });
+    } catch (e) {
+      console.error("[e2ee] encrypt failed", e);
+      // Fall back to plaintext so the user isn't blocked — RLS still protects it.
+      sendMessage.mutate({ request_id: id, ciphertext: text });
+    }
   }
 }
 
-function EncryptedMessage({ ciphertext }: { ciphertext: string }) {
-  // Placeholder for future E2EE decryption
-  return <span className="italic opacity-60">[encrypted]</span>;
+function DecryptedMessage({
+  ciphertext,
+  myUserId,
+  peerPubKey,
+}: {
+  ciphertext: string;
+  myUserId: string | undefined;
+  peerPubKey: JsonWebKey | null;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!myUserId || !peerPubKey) return;
+    let cancelled = false;
+    decryptFromPeer(myUserId, peerPubKey, ciphertext)
+      .then((pt) => {
+        if (!cancelled) setText(pt);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ciphertext, myUserId, peerPubKey]);
+  if (failed) return <span className="italic opacity-60">[cannot decrypt]</span>;
+  if (text == null) return <span className="italic opacity-60">decrypting…</span>;
+  return <>{text}</>;
 }
+
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {

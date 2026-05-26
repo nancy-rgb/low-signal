@@ -186,18 +186,21 @@ export type Database = {
           alias: string
           created_at: string
           id: string
+          public_key: Json | null
           updated_at: string
         }
         Insert: {
           alias?: string
           created_at?: string
           id: string
+          public_key?: Json | null
           updated_at?: string
         }
         Update: {
           alias?: string
           created_at?: string
           id?: string
+          public_key?: Json | null
           updated_at?: string
         }
         Relationships: []

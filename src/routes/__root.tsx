@@ -10,6 +10,7 @@ import {
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthGate } from "@/components/AuthGate";
+import { useEnsureKeypair } from "@/lib/e2ee";
 
 import appCss from "../styles.css?url";
 
@@ -125,6 +126,7 @@ function RootComponent() {
 function AuthBoundary({ children }: { children: React.ReactNode }) {
   const qc = useQueryClient();
   const router = useRouter();
+  useEnsureKeypair();
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       qc.invalidateQueries();
