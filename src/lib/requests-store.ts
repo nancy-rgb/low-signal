@@ -1,4 +1,12 @@
 import { useSyncExternalStore } from "react";
+import {
+  deriveKey,
+  encryptJSON,
+  decryptJSON,
+  randomBytes,
+  blobSalt,
+  type EncryptedBlob,
+} from "./crypto";
 
 // ---------- Types ----------
 export type HelpType =
@@ -111,8 +119,8 @@ export interface User {
   id: string;
   alias: string;
   groupIds: string[];
-  realPin?: string;       // 4-8 digits; if set, lock screen required
-  duressPin?: string;     // different PIN that opens decoy empty state
+  pinSet?: boolean;       // real PIN configured — lock screen shown on boot
+  duressSet?: boolean;    // duress PIN configured — decoy slot exists
   trustedContact?: string; // free text — name + how to reach them
 }
 
@@ -123,8 +131,25 @@ interface AppState {
   offers: Offer[];
 }
 
-// ---------- Storage ----------
-const KEY = "lov_state_v2";
+
+// ---------- Storage / vault ----------
+// Disk format v3: { version: 3, plain?: AppState, real?: EncryptedBlob, decoy?: EncryptedBlob }
+// - plain: only used when no real PIN is set yet (no encryption).
+// - real:  AES-GCM-encrypted full state, key derived from the real PIN.
+// - decoy: AES-GCM-encrypted decoy state, key derived from the duress PIN.
+// The PIN itself is NEVER persisted. Validity is checked by attempting decrypt.
+
+const VAULT_KEY = "lov_vault_v3";
+const LEGACY_KEY = "lov_state_v2";
+
+interface Vault {
+  version: 3;
+  plain?: AppState;
+  real?: EncryptedBlob;
+  decoy?: EncryptedBlob;
+}
+
+type Slot = "plain" | "real" | "decoy";
 
 function genId(n = 8) {
   return Math.random().toString(36).slice(2, 2 + n);
@@ -139,25 +164,73 @@ function defaultState(): AppState {
   };
 }
 
-function read(): AppState {
-  if (typeof window === "undefined") return defaultState();
+function readVault(): Vault {
+  if (typeof window === "undefined") return { version: 3 };
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultState();
-    const parsed = JSON.parse(raw);
-    return { ...defaultState(), ...parsed };
+    const raw = localStorage.getItem(VAULT_KEY);
+    if (raw) {
+      const v = JSON.parse(raw) as Vault;
+      if (v && v.version === 3) return v;
+    }
+    // Legacy migration from v2 plaintext.
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) {
+      const parsed = JSON.parse(legacy);
+      // Strip any legacy plaintext PIN fields.
+      if (parsed?.user) {
+        delete parsed.user.realPin;
+        delete parsed.user.duressPin;
+      }
+      const v: Vault = { version: 3, plain: { ...defaultState(), ...parsed } };
+      localStorage.setItem(VAULT_KEY, JSON.stringify(v));
+      localStorage.removeItem(LEGACY_KEY);
+      return v;
+    }
   } catch {
-    return defaultState();
+    /* fall through */
   }
+  return { version: 3 };
 }
 
-let state: AppState = read();
+let vault: Vault = readVault();
+
+// In-memory active state and its encryption key.
+let state: AppState = vault.plain ?? defaultState();
+let activeSlot: Slot = vault.plain ? "plain" : "real"; // "real" while locked, set on unlock
+let activeKey: CryptoKey | null = null;
+let activeSalt: Uint8Array | null = null;
+
 const subs = new Set<() => void>();
 
-function emit() {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(KEY, JSON.stringify(state));
+function writeVault() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+}
+
+function persistActive() {
+  if (activeSlot === "plain") {
+    vault = { ...vault, plain: state, real: undefined, decoy: undefined };
+    writeVault();
+    return;
   }
+  if (!activeKey || !activeSalt) return; // locked / not unlocked yet
+  const key = activeKey;
+  const salt = activeSalt;
+  const slot = activeSlot;
+  const snapshot = state;
+  // Fire-and-forget; ordering is preserved by single-threaded JS scheduling.
+  encryptJSON(key, snapshot, salt)
+    .then((blob) => {
+      vault = { ...vault, [slot]: blob, plain: undefined } as Vault;
+      writeVault();
+    })
+    .catch(() => {
+      /* ignore */
+    });
+}
+
+function emit() {
+  persistActive();
   subs.forEach((s) => s());
 }
 
@@ -187,12 +260,6 @@ export const store = {
   },
   setTrustedContact(contact: string) {
     set((s) => ({ ...s, user: { ...s.user, trustedContact: contact || undefined } }));
-  },
-  setPins(realPin: string | undefined, duressPin: string | undefined) {
-    set((s) => ({
-      ...s,
-      user: { ...s.user, realPin: realPin || undefined, duressPin: duressPin || undefined },
-    }));
   },
   setSafetyDeadline(id: string, deadline: number | undefined) {
     set((s) => ({
@@ -345,11 +412,79 @@ export const store = {
     set((s) => ({ ...s, offers: s.offers.filter((o) => o.id !== id) }));
   },
 
-  // Panic
+  // Panic — wipe everything (both slots) from disk and memory.
   wipe() {
-    if (typeof window !== "undefined") localStorage.removeItem(KEY);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(VAULT_KEY);
+      localStorage.removeItem(LEGACY_KEY);
+    }
+    vault = { version: 3 };
     state = defaultState();
+    activeKey = null;
+    activeSalt = null;
+    activeSlot = "plain";
+    sessionMode = "normal";
+    emitSession();
     emit();
+  },
+
+  // ----- PIN / encryption management -----
+  // Set / change / clear the real and duress PINs.
+  // Called only while mode === "normal" (caller can verify with session.getMode()).
+  async setPins(realPin: string | undefined, duressPin: string | undefined): Promise<void> {
+    // 1. Real PIN: enable, change, or disable encryption.
+    if (realPin) {
+      const salt = randomBytes(16);
+      const key = await deriveKey(realPin, salt);
+      activeKey = key;
+      activeSalt = salt;
+      activeSlot = "real";
+      state = { ...state, user: { ...state.user, pinSet: true } };
+      const blob = await encryptJSON(key, state, salt);
+      vault = { version: 3, real: blob, decoy: vault.decoy };
+      writeVault();
+    } else {
+      // Removing real PIN => fall back to plaintext storage, also wipe decoy.
+      activeKey = null;
+      activeSalt = null;
+      activeSlot = "plain";
+      state = {
+        ...state,
+        user: { ...state.user, pinSet: false, duressSet: false },
+      };
+      vault = { version: 3, plain: state };
+      writeVault();
+      // duressPin argument is ignored when real PIN is cleared.
+      subs.forEach((s) => s());
+      return;
+    }
+
+    // 2. Duress PIN: create / replace / clear the decoy slot.
+    if (duressPin) {
+      const dSalt = randomBytes(16);
+      const dKey = await deriveKey(duressPin, dSalt);
+      // Fresh decoy: empty state with a fresh anonymous user. The attacker
+      // can interact with it freely; nothing leaks to the real slot.
+      const decoyState: AppState = {
+        ...defaultState(),
+        user: { ...defaultState().user, duressSet: true },
+      };
+      const decoyBlob = await encryptJSON(dKey, decoyState, dSalt);
+      vault = { ...vault, decoy: decoyBlob };
+      state = { ...state, user: { ...state.user, duressSet: true } };
+      // Re-persist real slot to capture duressSet flag.
+      const realBlob = await encryptJSON(activeKey!, state, activeSalt!);
+      vault = { ...vault, real: realBlob };
+      writeVault();
+    } else if (vault.decoy) {
+      vault = { ...vault, decoy: undefined };
+      state = { ...state, user: { ...state.user, duressSet: false } };
+      const realBlob = await encryptJSON(activeKey!, state, activeSalt!);
+      vault = { ...vault, real: realBlob };
+      writeVault();
+    }
+
+    subs.forEach((s) => s());
   },
 };
 
@@ -380,20 +515,15 @@ function subscribeBoth(cb: () => void) {
   };
 }
 
-// Initialize session mode based on whether a real PIN is set.
+// Initialize session mode based on whether the vault has an encrypted real slot.
 if (typeof window !== "undefined") {
-  sessionMode = state.user.realPin ? "locked" : "normal";
+  sessionMode = vault.real ? "locked" : "normal";
 }
 
 function maskedSnapshot(): AppState {
-  // Duress: return decoy empty state, but keep alias so UI still works.
-  if (sessionMode === "duress") {
-    return {
-      user: { ...state.user, groupIds: [] },
-      groups: [],
-      requests: [],
-      offers: [],
-    };
+  // While locked, return a clean empty state (no leakage through the UI tree).
+  if (sessionMode === "locked") {
+    return defaultState();
   }
   return state;
 }
@@ -406,32 +536,77 @@ export const session = {
   getMode(): SessionMode {
     return sessionMode;
   },
-  attemptUnlock(pin: string): "normal" | "duress" | "invalid" {
+  hasRealPin(): boolean {
+    return !!vault.real;
+  },
+  hasDuressPin(): boolean {
+    return !!vault.decoy;
+  },
+  // Try to unlock by attempting decryption against each configured slot.
+  async attemptUnlock(pin: string): Promise<"normal" | "duress" | "invalid"> {
     const p = pin.trim();
     if (!p) return "invalid";
-    if (state.user.realPin && p === state.user.realPin) {
-      sessionMode = "normal";
-      emitSession();
-      return "normal";
+
+    // Try real slot first.
+    if (vault.real) {
+      try {
+        const salt = blobSalt(vault.real);
+        const key = await deriveKey(p, salt);
+        const decrypted = await decryptJSON<AppState>(key, vault.real);
+        state = decrypted;
+        activeKey = key;
+        activeSalt = salt;
+        activeSlot = "real";
+        sessionMode = "normal";
+        emitSession();
+        subs.forEach((s) => s());
+        return "normal";
+      } catch {
+        /* wrong PIN for real slot — try decoy */
+      }
     }
-    if (state.user.duressPin && p === state.user.duressPin) {
-      sessionMode = "duress";
-      emitSession();
-      return "duress";
+
+    if (vault.decoy) {
+      try {
+        const salt = blobSalt(vault.decoy);
+        const key = await deriveKey(p, salt);
+        const decrypted = await decryptJSON<AppState>(key, vault.decoy);
+        state = decrypted;
+        activeKey = key;
+        activeSalt = salt;
+        activeSlot = "decoy";
+        sessionMode = "duress";
+        emitSession();
+        subs.forEach((s) => s());
+        return "duress";
+      } catch {
+        /* wrong PIN for decoy too */
+      }
     }
+
     return "invalid";
   },
   lock() {
-    if (state.user.realPin) {
-      sessionMode = "locked";
-      emitSession();
-    }
+    if (!vault.real) return;
+    // Clear plaintext state from memory.
+    state = defaultState();
+    activeKey = null;
+    activeSalt = null;
+    activeSlot = "real";
+    sessionMode = "locked";
+    emitSession();
+    subs.forEach((s) => s());
   },
-  // Secret gesture: exit duress without re-locking (no UI affordance).
+  // Secret gesture: exit duress and force re-unlock with real PIN.
   exitDuress() {
     if (sessionMode === "duress") {
-      sessionMode = "normal";
+      state = defaultState();
+      activeKey = null;
+      activeSalt = null;
+      activeSlot = "real";
+      sessionMode = vault.real ? "locked" : "normal";
       emitSession();
+      subs.forEach((s) => s());
     }
   },
 };
