@@ -44,12 +44,21 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Graceful fallback for legacy plaintext messages; "decrypting…" / "[cannot decrypt]" states.
 - `useEnsureKeypair()` runs on auth; idempotent setup / republish.
 
-## Next up (Phase 5)
-- PIN-wrap the local private key (currently plaintext in localStorage — fine for v1, weak vs device seizure).
+## Done (Phase 5a — PIN-wrapped E2EE key)
+- E2EE private key wrapped with AES-GCM key derived from real PIN; in-memory cache cleared on lock / duress / sign-out.
+
+## Done (Phase 5b — Server-side safety alerts)
+- `trusted_contacts` table (per-user, RLS-scoped) for safety-alert recipients.
+- `safety_alerts` table — idempotent log, one row per request whose safety deadline lapsed without a "safe" check-in.
+- `sweep_expired_requests` RPC now records new alerts atomically; sweep route fetches contacts and marks delivered.
+- Settings UI to add/remove server-side trusted contacts.
+- Email transport stub: alerts are logged + counted; actual email send wires in once an email domain is configured.
+
+## Next up (Phase 5c — Push notifications)
+- Web Push (VAPID + service worker) for new messages / claim approvals / safety alerts.
+- Silent payloads only — no sensitive content in body.
 - Forward secrecy: ephemeral per-conversation keys or double-ratchet.
 - Key rotation flow + multi-device key sync (encrypted backup).
-- Push notifications without sensitive content in payload.
-- Background safety-timer alerts (notify trusted contact server-side if deadline passes).
 - Attach Supabase auth to server functions (for admin/moderator routes).
 
 
