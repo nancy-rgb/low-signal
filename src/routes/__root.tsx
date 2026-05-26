@@ -10,7 +10,9 @@ import {
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthGate } from "@/components/AuthGate";
+import { Splash } from "@/components/Splash";
 import { useEnsureKeypair, useBindE2EEToPin } from "@/lib/e2ee";
+import { usePushAutoResubscribe } from "@/lib/push";
 
 import appCss from "../styles.css?url";
 
@@ -76,14 +78,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Low Signal — Mutual aid for activists" },
+      { name: "description", content: "Low Signal: request and offer mutual aid in your community, privately." },
+      { name: "author", content: "Low Signal" },
+      { property: "og:title", content: "Low Signal" },
+      { property: "og:description", content: "Mutual aid for activists. Private by design." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
