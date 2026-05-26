@@ -1,19 +1,43 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { store, useStore } from "@/lib/requests-store";
+import {
+  useCreateGroup,
+  useJoinGroupByCode,
+  useLeaveGroup,
+  useMyGroups,
+} from "@/lib/data";
 
-export const Route = createFileRoute("/groups")({
-  component: Groups,
-});
+export const Route = createFileRoute("/groups")({ component: Groups });
 
 function Groups() {
-  const user = useStore((s) => s.user);
-  const groups = useStore((s) => s.groups);
-  const mine = groups.filter((g) => user.groupIds.includes(g.id));
+  const { data: mine = [] } = useMyGroups();
+  const create = useCreateGroup();
+  const join = useJoinGroupByCode();
+  const leave = useLeaveGroup();
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const [lastCreated, setLastCreated] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  async function doCreate() {
+    setErr(""); setMsg("");
+    if (!name.trim()) return;
+    try {
+      const g = await create.mutateAsync({ name: name.trim() });
+      setName("");
+      setMsg(`Created. Invite code: ${g.invite_code}`);
+    } catch (e) { setErr((e as Error).message); }
+  }
+  async function doJoin() {
+    setErr(""); setMsg("");
+    if (!code.trim()) return;
+    try {
+      await join.mutateAsync(code);
+      setCode("");
+      setMsg("Joined.");
+    } catch (e) { setErr((e as Error).message); }
+  }
 
   return (
     <AppShell>
@@ -21,23 +45,24 @@ function Groups() {
         <Link to="/" className="text-sm text-muted-foreground">← Home</Link>
         <h1 className="text-xl font-semibold">Groups / cells</h1>
         <p className="text-xs text-muted-foreground">
-          Groups scope who sees your requests. Share the code only with people you trust.
+          Groups scope who sees your requests. Share invite codes only with trusted people.
         </p>
+
+        {err && <div className="rounded-md border border-destructive bg-destructive/10 p-2 text-xs text-destructive">{err}</div>}
+        {msg && <div className="rounded-md border border-success bg-success/10 p-2 text-xs">{msg}</div>}
 
         <section className="rounded-md border border-input bg-card p-3">
           <div className="mb-2 text-sm font-medium">Your groups</div>
-          {mine.length === 0 && (
-            <p className="text-xs text-muted-foreground">Not in any group yet.</p>
-          )}
+          {mine.length === 0 && <p className="text-xs text-muted-foreground">Not in any group yet.</p>}
           <ul className="space-y-2">
             {mine.map((g) => (
               <li key={g.id} className="flex items-center justify-between text-sm">
                 <div>
                   <div className="font-medium">{g.name}</div>
-                  <div className="text-xs text-muted-foreground">Code: {g.inviteCode}</div>
+                  <div className="text-xs text-muted-foreground">Code: {g.invite_code}</div>
                 </div>
                 <button
-                  onClick={() => store.leaveGroup(g.id)}
+                  onClick={() => leave.mutate(g.id)}
                   className="rounded-md border border-input px-2 py-1 text-xs"
                 >Leave</button>
               </li>
@@ -56,20 +81,11 @@ function Groups() {
               className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <button
-              onClick={() => {
-                if (!name.trim()) return;
-                const g = store.createGroup(name.trim());
-                setName("");
-                setLastCreated(g.inviteCode);
-              }}
-              className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+              onClick={doCreate}
+              disabled={create.isPending}
+              className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >Create</button>
           </div>
-          {lastCreated && (
-            <p className="mt-2 text-xs">
-              New invite code: <strong>{lastCreated}</strong> — share securely.
-            </p>
-          )}
         </section>
 
         <section className="rounded-md border border-input bg-card p-3">
@@ -77,23 +93,17 @@ function Groups() {
           <div className="flex gap-2">
             <input
               value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="INVITE CODE"
-              maxLength={12}
-              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm uppercase"
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="invite code"
+              maxLength={24}
+              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <button
-              onClick={() => {
-                if (!code.trim()) return;
-                store.joinGroupByCode(code);
-                setCode("");
-              }}
-              className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+              onClick={doJoin}
+              disabled={join.isPending}
+              className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >Join</button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            In this prototype, codes only join locally. Real syncing comes with the backend.
-          </p>
         </section>
       </div>
     </AppShell>

@@ -2,20 +2,23 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { getCurrentLocation, type Coords } from "@/lib/geo";
 import { AppShell } from "@/components/AppShell";
-import { HELP_TYPES, store, useStore, type HelpType } from "@/lib/requests-store";
+import {
+  HELP_TYPES,
+  useCreateRequest,
+  useMyGroups,
+  useProfile,
+  type HelpType,
+} from "@/lib/data";
 
-export const Route = createFileRoute("/request/new")({
-  component: NewRequest,
-});
+export const Route = createFileRoute("/request/new")({ component: NewRequest });
 
 type Step = "locate" | "confirm" | "type" | "details" | "review";
 
 function NewRequest() {
   const navigate = useNavigate();
-  const user = useStore((s) => s.user);
-  const groups = useStore((s) =>
-    s.groups.filter((g) => s.user.groupIds.includes(g.id))
-  );
+  const { data: profile } = useProfile();
+  const { data: groups = [] } = useMyGroups();
+  const createReq = useCreateRequest();
 
   const [step, setStep] = useState<Step>("locate");
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -23,7 +26,7 @@ function NewRequest() {
   const [helpType, setHelpType] = useState<HelpType | null>(null);
   const [urgency, setUrgency] = useState<"low" | "medium" | "high">("medium");
   const [notes, setNotes] = useState("");
-  const [groupId, setGroupId] = useState<string>(groups[0]?.id ?? "");
+  const [groupId, setGroupId] = useState<string>("");
   const [ttlHours, setTtlHours] = useState(24);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,17 +45,23 @@ function NewRequest() {
     }
   }
 
-  function submit() {
+  async function submit() {
     if (!coords || !helpType) return;
-    const req = store.createRequest({
-      helpType,
-      urgency,
-      notes: notes.trim(),
-      groupId: groupId || undefined,
-      location: { lat: coords.lat, lng: coords.lng, label: locLabel || undefined },
-      ttlHours,
-    });
-    navigate({ to: "/request/$id", params: { id: req.id } });
+    try {
+      const req = await createReq.mutateAsync({
+        help_type: helpType,
+        urgency,
+        notes: notes.trim(),
+        area_label: locLabel.trim() || undefined,
+        group_id: groupId || undefined,
+        lat: coords.lat,
+        lng: coords.lng,
+        ttl_hours: ttlHours,
+      });
+      navigate({ to: "/request/$id", params: { id: req.id } });
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   const stepIdx = ["locate", "confirm", "type", "details", "review"].indexOf(step);
@@ -65,12 +74,6 @@ function NewRequest() {
           <span className="text-xs text-muted-foreground">Step {stepIdx + 1} of 5</span>
         </header>
 
-        {!user.alias && (
-          <div className="mb-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-2 text-xs">
-            Set an alias in <Link to="/settings" className="underline">Me</Link> first so volunteers can address you.
-          </div>
-        )}
-
         {error && (
           <div className="mb-3 rounded-md border border-destructive bg-destructive/10 p-2 text-sm text-destructive">
             {error}
@@ -81,7 +84,7 @@ function NewRequest() {
           <section className="flex flex-1 flex-col gap-4">
             <h2 className="text-xl font-semibold">Share your location</h2>
             <p className="text-sm text-muted-foreground">
-              Volunteers see an approximate area, not your exact pin, until you approve them.
+              Volunteers see an approximate area until you approve them.
             </p>
             <button
               onClick={locate}
@@ -94,7 +97,7 @@ function NewRequest() {
               onClick={() => { setCoords({ lat: 0, lng: 0 }); setStep("confirm"); }}
               className="text-sm text-muted-foreground underline"
             >
-              Enter manually instead
+              Skip / enter area only
             </button>
           </section>
         )}
@@ -166,7 +169,7 @@ function NewRequest() {
                 onChange={(e) => setGroupId(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2"
               >
-                <option value="">Any nearby volunteer (broadest)</option>
+                <option value="">Any signed-in volunteer (broadest)</option>
                 {groups.map((g) => (
                   <option key={g.id} value={g.id}>{g.name} (group)</option>
                 ))}
@@ -211,19 +214,25 @@ function NewRequest() {
 
         {step === "review" && (
           <section className="flex flex-1 flex-col gap-3">
-            <h2 className="text-xl font-semibold">Review & send</h2>
+            <h2 className="text-xl font-semibold">Review &amp; send</h2>
             <div className="space-y-2 rounded-md border border-input bg-card p-3 text-sm">
-              <Row label="Alias" value={user.alias || "Anonymous"} />
+              <Row label="Alias" value={profile?.alias ?? "Anonymous"} />
               <Row label="Help type" value={HELP_TYPES.find((t) => t.id === helpType)?.label ?? "—"} />
               <Row label="Urgency" value={urgency} />
-              <Row label="Visible to" value={groups.find((g) => g.id === groupId)?.name ?? "Any nearby"} />
+              <Row label="Visible to" value={groups.find((g) => g.id === groupId)?.name ?? "Any signed-in"} />
               <Row label="Expires" value={`${ttlHours}h`} />
               <Row label="Location" value={locLabel || `${coords?.lat.toFixed(3)}, ${coords?.lng.toFixed(3)}`} />
               {notes && <Row label="Notes" value={notes} />}
             </div>
             <div className="mt-auto flex gap-2">
               <button onClick={() => setStep("details")} className="flex-1 rounded-md border border-input px-4 py-3">Back</button>
-              <button onClick={submit} className="flex-1 rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground">Send request</button>
+              <button
+                onClick={submit}
+                disabled={createReq.isPending}
+                className="flex-1 rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                {createReq.isPending ? "Sending…" : "Send request"}
+              </button>
             </div>
           </section>
         )}
