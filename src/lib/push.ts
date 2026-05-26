@@ -94,7 +94,7 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC).buffer as ArrayBuffer,
     });
   }
   await saveSubscription(sub);
