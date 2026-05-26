@@ -614,5 +614,10 @@ export function useRealtimeRequest(requestId: string) {
 
 // ---------- Sign out ----------
 export async function signOut() {
+  const { data: { user } } = await supabase.auth.getUser();
   await supabase.auth.signOut();
+  if (user?.id) {
+    const { clearLocalE2EEKey } = await import("@/lib/e2ee");
+    clearLocalE2EEKey(user.id);
+  }
 }
