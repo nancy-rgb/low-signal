@@ -261,12 +261,6 @@ export const store = {
   setTrustedContact(contact: string) {
     set((s) => ({ ...s, user: { ...s.user, trustedContact: contact || undefined } }));
   },
-  setPins(realPin: string | undefined, duressPin: string | undefined) {
-    set((s) => ({
-      ...s,
-      user: { ...s.user, realPin: realPin || undefined, duressPin: duressPin || undefined },
-    }));
-  },
   setSafetyDeadline(id: string, deadline: number | undefined) {
     set((s) => ({
       ...s,
