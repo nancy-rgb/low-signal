@@ -1,14 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { HELP_TYPES, useStore, formatLoc } from "@/lib/requests-store";
+import { HELP_TYPES, useMyRequests } from "@/lib/data";
 
-export const Route = createFileRoute("/requests")({
-  component: MyRequests,
-});
+export const Route = createFileRoute("/requests")({ component: MyRequests });
 
 function MyRequests() {
-  const userId = useStore((s) => s.user.id);
-  const all = useStore((s) => s.requests.filter((r) => r.createdBy === userId));
+  const { data: all = [] } = useMyRequests();
 
   return (
     <AppShell>
@@ -30,14 +27,18 @@ function MyRequests() {
               >
                 <div className="flex justify-between">
                   <span className="font-medium">
-                    {HELP_TYPES.find((t) => t.id === r.helpType)?.label}
+                    {HELP_TYPES.find((t) => t.id === r.help_type)?.label}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {r.status.replace("_", " ")}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {formatLoc(r.location)} · {new Date(r.createdAt).toLocaleString()}
+                  {r.area_label ??
+                    (r.lat_coarse != null
+                      ? `~${r.lat_coarse.toFixed(2)}, ${r.lng_coarse!.toFixed(2)}`
+                      : "—")}{" "}
+                  · {new Date(r.created_at).toLocaleString()}
                 </div>
               </Link>
             </li>

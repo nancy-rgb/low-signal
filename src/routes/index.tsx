@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { useStore } from "@/lib/requests-store";
+import { useMyRequests, useMyGroups, useProfile } from "@/lib/data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,12 +13,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const user = useStore((s) => s.user);
-  const requests = useStore((s) => s.requests);
-  const myActive = requests.filter(
-    (r) =>
-      r.createdBy === user.id &&
-      (r.status === "open" || r.status === "pending_approval" || r.status === "claimed")
+  const { data: profile } = useProfile();
+  const { data: requests = [] } = useMyRequests();
+  const { data: groups = [] } = useMyGroups();
+
+  const myActive = requests.filter((r) =>
+    ["open", "pending_approval", "claimed"].includes(r.status),
   );
   const needsApproval = myActive.filter((r) => r.status === "pending_approval");
 
@@ -28,7 +28,7 @@ function Home() {
         <header className="py-2">
           <h1 className="text-2xl font-bold">Lifeline</h1>
           <p className="text-sm text-muted-foreground">
-            {user.alias ? `Signed as ${user.alias}` : "Set your alias in Me →"}
+            Signed in as {profile?.alias ?? "…"}
           </p>
         </header>
 
@@ -38,7 +38,7 @@ function Home() {
             params={{ id: needsApproval[0].id }}
             className="rounded-md border border-primary bg-primary/10 p-3 text-sm"
           >
-            <strong>Volunteer ready.</strong> Tap to review and approve.
+            <strong>Volunteer waiting.</strong> Tap to review.
           </Link>
         )}
 
@@ -56,27 +56,19 @@ function Home() {
         </Link>
 
         <div className="grid grid-cols-2 gap-2">
-          <Link
-            to="/requests"
-            className="rounded-md border border-input bg-card p-3 text-sm"
-          >
+          <Link to="/requests" className="rounded-md border border-input bg-card p-3 text-sm">
             My requests
             <div className="text-xs text-muted-foreground">{myActive.length} active</div>
           </Link>
-          <Link
-            to="/groups"
-            className="rounded-md border border-input bg-card p-3 text-sm"
-          >
+          <Link to="/groups" className="rounded-md border border-input bg-card p-3 text-sm">
             Groups
-            <div className="text-xs text-muted-foreground">
-              {user.groupIds.length} joined
-            </div>
+            <div className="text-xs text-muted-foreground">{groups.length} joined</div>
           </Link>
         </div>
 
         <div className="mt-2 rounded-md border border-input bg-muted/40 p-3 text-xs text-muted-foreground">
           <strong className="block text-foreground">Safety note</strong>
-          Prototype. Data on this device only. Use aliases, not real names.
+          Use aliases, never real names. Approve volunteers before sharing details.
         </div>
       </div>
     </AppShell>

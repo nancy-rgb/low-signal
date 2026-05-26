@@ -49,3 +49,11 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Push notifications that contain request content in the body
 - Mandatory phone number / SMS verification
 - Persistent stable handles across requests by default
+
+## Phase 2 deferred (v0.5)
+- Restore safety timer + check-ins (move to a `check_ins` table with realtime).
+- Restore in-band messages (encrypted, server-stored, realtime).
+- Column-level location guard: enforce server-side that lat_exact/lng_exact only resolve for requester + approved volunteer (currently enforced in app code).
+- Geohash bucketing in DB to scale nearby filtering past prototype size.
+- Group request feed = group_id IS NOT NULL but requires `lat_coarse` filtering by region.
+- E2EE per-conversation keys, sealed inside each user's encrypted vault.

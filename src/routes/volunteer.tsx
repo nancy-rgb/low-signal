@@ -5,42 +5,39 @@ import { getCurrentLocation, type Coords } from "@/lib/geo";
 import {
   HELP_TYPES,
   distanceKm,
-  fuzzCoords,
-  useStore,
-} from "@/lib/requests-store";
+  useMyGroups,
+  useVisibleOpenRequests,
+} from "@/lib/data";
 
-export const Route = createFileRoute("/volunteer")({
-  component: VolunteerHome,
-});
+export const Route = createFileRoute("/volunteer")({ component: VolunteerHome });
 
 function VolunteerHome() {
-  const user = useStore((s) => s.user);
-  const allRequests = useStore((s) => s.requests);
+  const { data: groups = [] } = useMyGroups();
   const [me, setMe] = useState<Coords | null>(null);
   const [radius, setRadius] = useState(25);
   const [err, setErr] = useState("");
-  const [scope, setScope] = useState<"groups" | "all">(
-    user.groupIds.length ? "groups" : "all"
-  );
+  const [scope, setScope] = useState<"groups" | "public">("groups");
 
   useEffect(() => {
     getCurrentLocation().then(setMe).catch((e) => setErr(e.message));
   }, []);
 
-  const open = allRequests.filter((r) => {
-    if (r.status !== "open") return false;
-    if (r.createdBy === user.id) return false;
-    if (scope === "groups") {
-      return r.groupId && user.groupIds.includes(r.groupId);
-    }
-    return !r.groupId; // "all" only shows public requests
+  const { data: open = [] } = useVisibleOpenRequests({
+    scope,
+    groupIds: groups.map((g) => g.id),
   });
 
   const list = me
     ? open
-        .map((r) => ({ r, km: distanceKm(me, r.location) }))
-        .filter((x) => x.km <= radius)
-        .sort((a, b) => a.km - b.km)
+        .map((r) => ({
+          r,
+          km:
+            r.lat_coarse != null
+              ? distanceKm(me, { lat: r.lat_coarse, lng: r.lng_coarse! })
+              : NaN,
+        }))
+        .filter((x) => Number.isNaN(x.km) || x.km <= radius)
+        .sort((a, b) => (Number.isNaN(a.km) ? 1 : Number.isNaN(b.km) ? -1 : a.km - b.km))
     : open.map((r) => ({ r, km: NaN }));
 
   return (
@@ -60,10 +57,10 @@ function VolunteerHome() {
           <button
             onClick={() => setScope("groups")}
             className={`flex-1 rounded-md border px-3 py-2 ${scope === "groups" ? "border-primary bg-primary/10" : "border-input"}`}
-          >My groups ({user.groupIds.length})</button>
+          >My groups ({groups.length})</button>
           <button
-            onClick={() => setScope("all")}
-            className={`flex-1 rounded-md border px-3 py-2 ${scope === "all" ? "border-primary bg-primary/10" : "border-input"}`}
+            onClick={() => setScope("public")}
+            className={`flex-1 rounded-md border px-3 py-2 ${scope === "public" ? "border-primary bg-primary/10" : "border-input"}`}
           >Public</button>
         </div>
 
@@ -76,30 +73,30 @@ function VolunteerHome() {
           {list.length === 0 && (
             <li className="text-sm text-muted-foreground">No open requests in range.</li>
           )}
-          {list.map(({ r, km }) => {
-            const fuzzy = fuzzCoords(r.location);
-            return (
-              <li key={r.id}>
-                <Link
-                  to="/volunteer/$id"
-                  params={{ id: r.id }}
-                  className="block rounded-md border border-input bg-card p-3"
-                >
-                  <div className="flex justify-between">
-                    <span className="font-medium">
-                      {HELP_TYPES.find((t) => t.id === r.helpType)?.label}
-                    </span>
-                    <span className="text-xs capitalize text-muted-foreground">{r.urgency}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {r.location.label ?? `~${fuzzy.lat.toFixed(2)}, ${fuzzy.lng.toFixed(2)}`}
-                    {!Number.isNaN(km) && ` · ~${km.toFixed(1)} km`}
-                  </div>
-                  {r.notes && <div className="mt-1 line-clamp-2 text-xs">{r.notes}</div>}
-                </Link>
-              </li>
-            );
-          })}
+          {list.map(({ r, km }) => (
+            <li key={r.id}>
+              <Link
+                to="/volunteer/$id"
+                params={{ id: r.id }}
+                className="block rounded-md border border-input bg-card p-3"
+              >
+                <div className="flex justify-between">
+                  <span className="font-medium">
+                    {HELP_TYPES.find((t) => t.id === r.help_type)?.label}
+                  </span>
+                  <span className="text-xs capitalize text-muted-foreground">{r.urgency}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {r.area_label ??
+                    (r.lat_coarse != null
+                      ? `~${r.lat_coarse.toFixed(2)}, ${r.lng_coarse!.toFixed(2)}`
+                      : "Area not shared")}
+                  {!Number.isNaN(km) && ` · ~${km.toFixed(1)} km`}
+                </div>
+                {r.notes && <div className="mt-1 line-clamp-2 text-xs">{r.notes}</div>}
+              </Link>
+            </li>
+          ))}
         </ul>
       </div>
     </AppShell>

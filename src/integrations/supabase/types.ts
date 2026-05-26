@@ -119,21 +119,18 @@ export type Database = {
           alias: string
           created_at: string
           id: string
-          trusted_contact: string | null
           updated_at: string
         }
         Insert: {
           alias?: string
           created_at?: string
           id: string
-          trusted_contact?: string | null
           updated_at?: string
         }
         Update: {
           alias?: string
           created_at?: string
           id?: string
-          trusted_contact?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -291,6 +288,7 @@ export type Database = {
         Args: { _req: string; _user: string }
         Returns: boolean
       }
+      join_group_by_code: { Args: { _code: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "coordinator" | "volunteer" | "member"

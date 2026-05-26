@@ -1,16 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { useAuth } from "@/hooks/use-auth";
 import { session, store, useStore } from "@/lib/requests-store";
+import { signOut, useMyGroups, useProfile, useUpdateProfile } from "@/lib/data";
 
-export const Route = createFileRoute("/settings")({
-  component: Settings,
-});
+export const Route = createFileRoute("/settings")({ component: Settings });
 
 function Settings() {
-  const user = useStore((s) => s.user);
-  const [alias, setAlias] = useState(user.alias);
-  const [contact, setContact] = useState(user.trustedContact ?? "");
+  const { user } = useAuth();
+  const { data: profile } = useProfile();
+  const { data: groups = [] } = useMyGroups();
+  const update = useUpdateProfile();
+  const localUser = useStore((s) => s.user);
+
+  const [alias, setAlias] = useState("");
+  const [contact, setContact] = useState(localUser.trustedContact ?? "");
+  const [aliasMsg, setAliasMsg] = useState("");
+
+  useEffect(() => {
+    if (profile?.alias) setAlias(profile.alias);
+  }, [profile?.alias]);
+
   const [realPin, setRealPin] = useState("");
   const [duressPin, setDuressPin] = useState("");
   const [pinErr, setPinErr] = useState("");
@@ -19,65 +30,19 @@ function Settings() {
   const [confirmWipe, setConfirmWipe] = useState(false);
 
   async function savePins() {
-    setPinErr("");
-    setPinMsg("");
+    setPinErr(""); setPinMsg("");
     const r = realPin.trim();
     const d = duressPin.trim();
-    // When user.pinSet is already true and they leave realPin blank, we
-    // keep the existing PIN (don't disable encryption silently).
-    const keepExistingReal = !r && !!user.pinSet;
-    const keepExistingDuress = !d && !!user.duressSet;
-
-    if (r && (r.length < 4 || !/^\d+$/.test(r))) {
-      setPinErr("Real PIN must be 4–8 digits.");
-      return;
-    }
-    if (d && (d.length < 4 || !/^\d+$/.test(d))) {
-      setPinErr("Duress PIN must be 4–8 digits.");
-      return;
-    }
-    if (r && d && r === d) {
-      setPinErr("Real and duress PIN must differ.");
-      return;
-    }
-    if (d && !r && !user.pinSet) {
-      setPinErr("Set a real PIN before setting a duress PIN.");
-      return;
-    }
-
-    // Resolve effective intent.
-    const nextReal = keepExistingReal ? undefined : (r || undefined);
-    const nextDuress = keepExistingDuress ? undefined : (d || undefined);
-
-    // If keeping existing real, we can't re-derive the key from a blank PIN.
-    // In that case we only allow modifying duress, which requires the real
-    // key to be active (it already is, since we're unlocked).
-    if (keepExistingReal && nextDuress === undefined && !keepExistingDuress) {
-      // Clearing duress only.
-      setPinBusy(true);
-      try {
-        // Pass the current real "virtual" by re-using setPins with a sentinel
-        // is not possible without the PIN. So require user to type real PIN
-        // to change anything that re-encrypts the real slot.
-        setPinErr("Re-enter your real PIN to change duress settings.");
-      } finally {
-        setPinBusy(false);
-      }
-      return;
-    }
-
-    if (keepExistingReal) {
-      setPinErr("Re-enter your real PIN to change PIN settings.");
-      return;
-    }
-
+    if (r && (r.length < 4 || !/^\d+$/.test(r))) return setPinErr("Real PIN must be 4–8 digits.");
+    if (d && (d.length < 4 || !/^\d+$/.test(d))) return setPinErr("Duress PIN must be 4–8 digits.");
+    if (r && d && r === d) return setPinErr("Real and duress PIN must differ.");
+    if (d && !r && !localUser.pinSet) return setPinErr("Set a real PIN before a duress PIN.");
     setPinBusy(true);
     try {
-      await store.setPins(nextReal, nextDuress);
-      setRealPin("");
-      setDuressPin("");
-      setPinMsg("PINs saved. Data is now encrypted on this device.");
-    } catch (e) {
+      await store.setPins(r || undefined, d || undefined);
+      setRealPin(""); setDuressPin("");
+      setPinMsg("PINs saved.");
+    } catch {
       setPinErr("Failed to save PINs.");
     } finally {
       setPinBusy(false);
@@ -90,6 +55,15 @@ function Settings() {
         <Link to="/" className="text-sm text-muted-foreground">← Home</Link>
         <h1 className="text-xl font-semibold">Me</h1>
 
+        <section className="rounded-md border border-input bg-card p-3 text-xs">
+          <div className="font-medium">Account</div>
+          <div className="mt-1 text-muted-foreground">{user?.email ?? "—"}</div>
+          <button
+            onClick={signOut}
+            className="mt-2 rounded-md border border-input px-3 py-1.5 text-xs"
+          >Sign out</button>
+        </section>
+
         <section className="rounded-md border border-input bg-card p-3">
           <div className="mb-2 text-sm font-medium">Alias</div>
           <div className="flex gap-2">
@@ -101,17 +75,22 @@ function Settings() {
               className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <button
-              onClick={() => store.setAlias(alias.trim())}
+              onClick={async () => {
+                setAliasMsg("");
+                await update.mutateAsync({ alias: alias.trim() || "Anonymous" });
+                setAliasMsg("Saved");
+              }}
               className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
             >Save</button>
           </div>
+          {aliasMsg && <p className="mt-1 text-xs text-success">{aliasMsg}</p>}
           <p className="mt-2 text-xs text-muted-foreground">
-            Never use your real name. Shown to people who help you.
+            Shown to people who help you. Never use your real name.
           </p>
         </section>
 
         <section className="rounded-md border border-input bg-card p-3">
-          <div className="mb-2 text-sm font-medium">Trusted contact</div>
+          <div className="mb-2 text-sm font-medium">Trusted contact (on-device only)</div>
           <div className="flex gap-2">
             <input
               value={contact}
@@ -126,19 +105,19 @@ function Settings() {
             >Save</button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Reminded to alert this person if a safety timer expires. Stored locally.
+            Stays on this device only. Never sent to the server.
           </p>
         </section>
 
         <section className="rounded-md border border-input bg-card p-3">
-          <div className="mb-1 text-sm font-medium">App PINs &amp; encryption</div>
+          <div className="mb-1 text-sm font-medium">App PINs &amp; encryption (on-device)</div>
           <p className="mb-2 text-xs text-muted-foreground">
-            Status: {user.pinSet ? "encrypted ✓" : "not encrypted yet"}
-            {user.duressSet ? " · decoy set ✓" : ""}
+            Status: {localUser.pinSet ? "encrypted ✓" : "not encrypted"}
+            {localUser.duressSet ? " · decoy set ✓" : ""}
           </p>
           <label className="block text-xs">
             <span className="mb-1 block text-muted-foreground">
-              Real PIN {user.pinSet ? "(re-enter to change)" : "(unlocks app)"}
+              Real PIN {localUser.pinSet ? "(re-enter to change)" : "(unlocks app)"}
             </span>
             <input
               type="password"
@@ -161,32 +140,26 @@ function Settings() {
             />
           </label>
           {pinErr && <p className="mt-2 text-xs text-destructive">{pinErr}</p>}
-          {pinMsg && <p className="mt-2 text-xs text-emerald-500">{pinMsg}</p>}
+          {pinMsg && <p className="mt-2 text-xs text-success">{pinMsg}</p>}
           <div className="mt-2 flex gap-2">
             <button
               onClick={savePins}
               disabled={pinBusy}
               className="flex-1 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >{pinBusy ? "Saving…" : "Save PINs"}</button>
-            {user.pinSet && (
+            {localUser.pinSet && (
               <button
                 onClick={() => session.lock()}
                 className="rounded-md border border-input px-3 py-2 text-sm"
               >Lock now</button>
             )}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Data is encrypted at rest using AES-GCM with a key derived from your PIN
-            (PBKDF2, 150k iterations). The PIN is never stored. Entering the duress PIN
-            opens a separate, empty decoy version of the app — real data stays hidden.
-          </p>
         </section>
-
 
         <section className="rounded-md border border-input bg-card p-3 text-sm">
           <div className="mb-2 font-medium">Groups</div>
           <p className="text-xs text-muted-foreground">
-            You're in {user.groupIds.length} group{user.groupIds.length === 1 ? "" : "s"}.
+            You're in {groups.length} group{groups.length === 1 ? "" : "s"}.
           </p>
           <Link to="/groups" className="mt-2 inline-block rounded-md border border-input px-3 py-1.5 text-xs">
             Manage groups
@@ -194,15 +167,15 @@ function Settings() {
         </section>
 
         <section className="rounded-md border border-destructive bg-destructive/5 p-3">
-          <div className="mb-1 text-sm font-medium text-destructive">Panic wipe</div>
+          <div className="mb-1 text-sm font-medium text-destructive">Panic wipe (this device)</div>
           <p className="text-xs text-muted-foreground">
-            Erases all requests, offers, messages, groups, alias, and PINs from this device. Cannot be undone.
+            Erases local data, PINs, and signs you out. Server data stays unless you also delete the account.
           </p>
           {!confirmWipe ? (
             <button
               onClick={() => setConfirmWipe(true)}
               className="mt-2 w-full rounded-md border border-destructive px-3 py-2 text-sm text-destructive"
-            >Wipe everything</button>
+            >Wipe everything on this device</button>
           ) : (
             <div className="mt-2 flex gap-2">
               <button
@@ -210,10 +183,10 @@ function Settings() {
                 className="flex-1 rounded-md border border-input px-3 py-2 text-sm"
               >Cancel</button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   store.wipe();
+                  await signOut();
                   setConfirmWipe(false);
-                  setAlias(""); setContact(""); setRealPin(""); setDuressPin("");
                 }}
                 className="flex-1 rounded-md bg-destructive px-3 py-2 text-sm font-semibold text-destructive-foreground"
               >Confirm wipe</button>
@@ -221,9 +194,7 @@ function Settings() {
           )}
         </section>
 
-        <p className="text-center text-xs text-muted-foreground">
-          Prototype · local-only · v0.3
-        </p>
+        <p className="text-center text-xs text-muted-foreground">Prototype · v0.5</p>
       </div>
     </AppShell>
   );
