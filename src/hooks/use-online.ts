@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
 export function useOnline() {
-  const [online, setOnline] = useState(
-    typeof navigator === "undefined" ? true : navigator.onLine
-  );
+  // Init to true so SSR and first client render match; correct in effect.
+  const [online, setOnline] = useState(true);
   useEffect(() => {
+    setOnline(navigator.onLine);
     const on = () => setOnline(true);
     const off = () => setOnline(false);
     window.addEventListener("online", on);
