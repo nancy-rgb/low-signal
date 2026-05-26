@@ -9,38 +9,120 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VolunteerRouteImport } from './routes/volunteer'
+import { Route as RequestsRouteImport } from './routes/requests'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VolunteerIdRouteImport } from './routes/volunteer.$id'
+import { Route as RequestNewRouteImport } from './routes/request.new'
+import { Route as RequestIdRouteImport } from './routes/request.$id'
 
+const VolunteerRoute = VolunteerRouteImport.update({
+  id: '/volunteer',
+  path: '/volunteer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestsRoute = RequestsRouteImport.update({
+  id: '/requests',
+  path: '/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VolunteerIdRoute = VolunteerIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => VolunteerRoute,
+} as any)
+const RequestNewRoute = RequestNewRouteImport.update({
+  id: '/request/new',
+  path: '/request/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestIdRoute = RequestIdRouteImport.update({
+  id: '/request/$id',
+  path: '/request/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/requests': typeof RequestsRoute
+  '/volunteer': typeof VolunteerRouteWithChildren
+  '/request/$id': typeof RequestIdRoute
+  '/request/new': typeof RequestNewRoute
+  '/volunteer/$id': typeof VolunteerIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/requests': typeof RequestsRoute
+  '/volunteer': typeof VolunteerRouteWithChildren
+  '/request/$id': typeof RequestIdRoute
+  '/request/new': typeof RequestNewRoute
+  '/volunteer/$id': typeof VolunteerIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/requests': typeof RequestsRoute
+  '/volunteer': typeof VolunteerRouteWithChildren
+  '/request/$id': typeof RequestIdRoute
+  '/request/new': typeof RequestNewRoute
+  '/volunteer/$id': typeof VolunteerIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/requests'
+    | '/volunteer'
+    | '/request/$id'
+    | '/request/new'
+    | '/volunteer/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/requests'
+    | '/volunteer'
+    | '/request/$id'
+    | '/request/new'
+    | '/volunteer/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/requests'
+    | '/volunteer'
+    | '/request/$id'
+    | '/request/new'
+    | '/volunteer/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RequestsRoute: typeof RequestsRoute
+  VolunteerRoute: typeof VolunteerRouteWithChildren
+  RequestIdRoute: typeof RequestIdRoute
+  RequestNewRoute: typeof RequestNewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/volunteer': {
+      id: '/volunteer'
+      path: '/volunteer'
+      fullPath: '/volunteer'
+      preLoaderRoute: typeof VolunteerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/requests': {
+      id: '/requests'
+      path: '/requests'
+      fullPath: '/requests'
+      preLoaderRoute: typeof RequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +130,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/volunteer/$id': {
+      id: '/volunteer/$id'
+      path: '/$id'
+      fullPath: '/volunteer/$id'
+      preLoaderRoute: typeof VolunteerIdRouteImport
+      parentRoute: typeof VolunteerRoute
+    }
+    '/request/new': {
+      id: '/request/new'
+      path: '/request/new'
+      fullPath: '/request/new'
+      preLoaderRoute: typeof RequestNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request/$id': {
+      id: '/request/$id'
+      path: '/request/$id'
+      fullPath: '/request/$id'
+      preLoaderRoute: typeof RequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface VolunteerRouteChildren {
+  VolunteerIdRoute: typeof VolunteerIdRoute
+}
+
+const VolunteerRouteChildren: VolunteerRouteChildren = {
+  VolunteerIdRoute: VolunteerIdRoute,
+}
+
+const VolunteerRouteWithChildren = VolunteerRoute._addFileChildren(
+  VolunteerRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RequestsRoute: RequestsRoute,
+  VolunteerRoute: VolunteerRouteWithChildren,
+  RequestIdRoute: RequestIdRoute,
+  RequestNewRoute: RequestNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
