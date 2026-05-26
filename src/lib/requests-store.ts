@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 
+// ---------- Types ----------
 export type HelpType =
   | "safe_shelter"
   | "secure_travel"
@@ -19,9 +20,46 @@ export const HELP_TYPES: { id: HelpType; label: string; hint: string }[] = [
   { id: "other", label: "Other", hint: "Describe in notes" },
 ];
 
-export type RequestStatus = "open" | "claimed" | "completed" | "cancelled";
+export type OfferType = HelpType | "transport" | "hosting";
 
-export interface Volunteer {
+export const OFFER_TYPES: { id: OfferType; label: string }[] = [
+  { id: "hosting", label: "Can host people" },
+  { id: "transport", label: "Driving / transport" },
+  { id: "supplies", label: "Supplies to share" },
+  { id: "medical", label: "Medical skills" },
+  { id: "legal", label: "Legal skills" },
+  { id: "message_relay", label: "Can relay messages" },
+  { id: "other", label: "Other" },
+];
+
+export type RequestStatus =
+  | "open"
+  | "pending_approval" // volunteer claimed, awaiting requester approval
+  | "claimed" // approved
+  | "completed"
+  | "cancelled"
+  | "expired";
+
+export type CheckInKind = "on_the_way" | "arrived" | "safe" | "delayed";
+
+export interface CheckIn {
+  id: string;
+  by: string; // alias
+  kind: CheckInKind;
+  at: number;
+  note?: string;
+}
+
+export interface Message {
+  id: string;
+  by: string; // alias
+  byUserId: string;
+  text: string;
+  at: number;
+}
+
+export interface VolunteerClaim {
+  userId: string;
   alias: string;
   claimedAt: number;
   meetupPoint?: string;
@@ -32,85 +70,274 @@ export interface Volunteer {
 export interface HelpRequest {
   id: string;
   createdAt: number;
+  expiresAt: number;
+  createdBy: string; // userId
   alias: string;
+  groupId?: string; // visibility scope
   helpType: HelpType;
   urgency: "low" | "medium" | "high";
   notes: string;
   location: { lat: number; lng: number; label?: string };
   status: RequestStatus;
-  volunteer?: Volunteer;
+  claim?: VolunteerClaim;
+  checkIns: CheckIn[];
+  messages: Message[];
 }
 
-const KEY = "lov_help_requests_v1";
+export interface Offer {
+  id: string;
+  createdAt: number;
+  expiresAt: number;
+  createdBy: string;
+  alias: string;
+  groupId?: string;
+  offerType: OfferType;
+  capacity: string; // free text, e.g. "2 people", "5 blankets"
+  location: { lat: number; lng: number; label?: string };
+  notes: string;
+}
 
-function read(): HelpRequest[] {
-  if (typeof window === "undefined") return [];
+export interface Group {
+  id: string;
+  name: string;
+  inviteCode: string;
+}
+
+export interface User {
+  id: string;
+  alias: string;
+  groupIds: string[];
+}
+
+interface AppState {
+  user: User;
+  groups: Group[];
+  requests: HelpRequest[];
+  offers: Offer[];
+}
+
+// ---------- Storage ----------
+const KEY = "lov_state_v2";
+
+function genId(n = 8) {
+  return Math.random().toString(36).slice(2, 2 + n);
+}
+
+function defaultState(): AppState {
+  return {
+    user: { id: genId(), alias: "", groupIds: [] },
+    groups: [],
+    requests: [],
+    offers: [],
+  };
+}
+
+function read(): AppState {
+  if (typeof window === "undefined") return defaultState();
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "[]");
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return { ...defaultState(), ...parsed };
   } catch {
-    return [];
+    return defaultState();
   }
 }
 
-let cache: HelpRequest[] = read();
+let state: AppState = read();
 const subs = new Set<() => void>();
 
 function emit() {
   if (typeof window !== "undefined") {
-    localStorage.setItem(KEY, JSON.stringify(cache));
+    localStorage.setItem(KEY, JSON.stringify(state));
   }
   subs.forEach((s) => s());
 }
 
-export const requestsStore = {
+function set(updater: (s: AppState) => AppState) {
+  state = updater(state);
+  // sweep expired
+  const now = Date.now();
+  state.requests = state.requests.map((r) =>
+    r.status === "open" && r.expiresAt < now ? { ...r, status: "expired" } : r
+  );
+  state.offers = state.offers.filter((o) => o.expiresAt >= now);
+  emit();
+}
+
+// ---------- Selectors / actions ----------
+export const store = {
   subscribe(cb: () => void) {
     subs.add(cb);
     return () => subs.delete(cb);
   },
-  getSnapshot() {
-    return cache;
+  getSnapshot: () => state,
+  getServerSnapshot: () => defaultState(),
+
+  // User
+  setAlias(alias: string) {
+    set((s) => ({ ...s, user: { ...s.user, alias } }));
   },
-  getServerSnapshot() {
-    return [] as HelpRequest[];
+
+  // Groups
+  createGroup(name: string) {
+    const g: Group = { id: genId(), name, inviteCode: genId(6).toUpperCase() };
+    set((s) => ({
+      ...s,
+      groups: [...s.groups, g],
+      user: { ...s.user, groupIds: [...s.user.groupIds, g.id] },
+    }));
+    return g;
   },
-  all() {
-    return cache;
+  joinGroupByCode(code: string, fallbackName = "Group") {
+    const norm = code.trim().toUpperCase();
+    let group = state.groups.find((g) => g.inviteCode === norm);
+    if (!group) {
+      // For prototype: create a stub group representing the remote one
+      group = { id: genId(), name: `${fallbackName} (${norm})`, inviteCode: norm };
+      set((s) => ({ ...s, groups: [...s.groups, group!] }));
+    }
+    if (!state.user.groupIds.includes(group.id)) {
+      set((s) => ({
+        ...s,
+        user: { ...s.user, groupIds: [...s.user.groupIds, group!.id] },
+      }));
+    }
+    return group;
   },
-  get(id: string) {
-    return cache.find((r) => r.id === id);
+  leaveGroup(groupId: string) {
+    set((s) => ({
+      ...s,
+      user: { ...s.user, groupIds: s.user.groupIds.filter((g) => g !== groupId) },
+    }));
   },
-  create(r: Omit<HelpRequest, "id" | "createdAt" | "status">): HelpRequest {
+
+  // Requests
+  createRequest(input: Omit<HelpRequest, "id" | "createdAt" | "expiresAt" | "status" | "checkIns" | "messages" | "createdBy" | "alias"> & { ttlHours?: number }) {
+    const ttl = (input.ttlHours ?? 24) * 60 * 60 * 1000;
     const req: HelpRequest = {
-      ...r,
-      id: Math.random().toString(36).slice(2, 10),
+      id: genId(),
       createdAt: Date.now(),
+      expiresAt: Date.now() + ttl,
+      createdBy: state.user.id,
+      alias: state.user.alias || "Anonymous",
+      groupId: input.groupId,
+      helpType: input.helpType,
+      urgency: input.urgency,
+      notes: input.notes,
+      location: input.location,
       status: "open",
+      checkIns: [],
+      messages: [],
     };
-    cache = [req, ...cache];
-    emit();
+    set((s) => ({ ...s, requests: [req, ...s.requests] }));
     return req;
   },
-  update(id: string, patch: Partial<HelpRequest>) {
-    cache = cache.map((r) => (r.id === id ? { ...r, ...patch } : r));
-    emit();
+  updateRequest(id: string, patch: Partial<HelpRequest>) {
+    set((s) => ({
+      ...s,
+      requests: s.requests.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    }));
   },
-  claim(id: string, v: Volunteer) {
-    cache = cache.map((r) =>
-      r.id === id ? { ...r, status: "claimed", volunteer: v } : r
-    );
+  proposeClaim(id: string, claim: Omit<VolunteerClaim, "userId" | "claimedAt"> & { alias: string }) {
+    const full: VolunteerClaim = {
+      ...claim,
+      userId: state.user.id,
+      claimedAt: Date.now(),
+    };
+    set((s) => ({
+      ...s,
+      requests: s.requests.map((r) =>
+        r.id === id ? { ...r, status: "pending_approval", claim: full } : r
+      ),
+    }));
+  },
+  approveClaim(id: string) {
+    set((s) => ({
+      ...s,
+      requests: s.requests.map((r) =>
+        r.id === id ? { ...r, status: "claimed" } : r
+      ),
+    }));
+  },
+  rejectClaim(id: string) {
+    set((s) => ({
+      ...s,
+      requests: s.requests.map((r) =>
+        r.id === id ? { ...r, status: "open", claim: undefined } : r
+      ),
+    }));
+  },
+  addCheckIn(id: string, kind: CheckInKind, note?: string) {
+    const c: CheckIn = {
+      id: genId(),
+      by: state.user.alias || "Anonymous",
+      kind,
+      at: Date.now(),
+      note,
+    };
+    set((s) => ({
+      ...s,
+      requests: s.requests.map((r) =>
+        r.id === id ? { ...r, checkIns: [...r.checkIns, c] } : r
+      ),
+    }));
+  },
+  addMessage(id: string, text: string) {
+    const m: Message = {
+      id: genId(),
+      by: state.user.alias || "Anonymous",
+      byUserId: state.user.id,
+      text,
+      at: Date.now(),
+    };
+    set((s) => ({
+      ...s,
+      requests: s.requests.map((r) =>
+        r.id === id ? { ...r, messages: [...r.messages, m] } : r
+      ),
+    }));
+  },
+
+  // Offers
+  createOffer(input: Omit<Offer, "id" | "createdAt" | "expiresAt" | "createdBy" | "alias"> & { ttlHours?: number }) {
+    const ttl = (input.ttlHours ?? 72) * 60 * 60 * 1000;
+    const o: Offer = {
+      id: genId(),
+      createdAt: Date.now(),
+      expiresAt: Date.now() + ttl,
+      createdBy: state.user.id,
+      alias: state.user.alias || "Anonymous",
+      groupId: input.groupId,
+      offerType: input.offerType,
+      capacity: input.capacity,
+      location: input.location,
+      notes: input.notes,
+    };
+    set((s) => ({ ...s, offers: [o, ...s.offers] }));
+    return o;
+  },
+  removeOffer(id: string) {
+    set((s) => ({ ...s, offers: s.offers.filter((o) => o.id !== id) }));
+  },
+
+  // Panic
+  wipe() {
+    if (typeof window !== "undefined") localStorage.removeItem(KEY);
+    state = defaultState();
     emit();
   },
 };
 
-export function useRequests() {
+export function useStore<T>(selector: (s: AppState) => T): T {
   return useSyncExternalStore(
-    requestsStore.subscribe,
-    requestsStore.getSnapshot,
-    requestsStore.getServerSnapshot
+    store.subscribe,
+    () => selector(store.getSnapshot()),
+    () => selector(store.getServerSnapshot())
   );
 }
 
-// Haversine km
+// ---------- Geo helpers ----------
 export function distanceKm(
   a: { lat: number; lng: number },
   b: { lat: number; lng: number }
@@ -124,4 +351,18 @@ export function distanceKm(
       Math.cos((b.lat * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+// Snap to ~500m grid for volunteer-visible location
+export function fuzzCoords<T extends { lat: number; lng: number }>(c: T): T {
+  const step = 0.005;
+  return {
+    ...c,
+    lat: Math.round(c.lat / step) * step,
+    lng: Math.round(c.lng / step) * step,
+  };
+}
+
+export function formatLoc(loc: { lat: number; lng: number; label?: string }) {
+  return loc.label || `${loc.lat.toFixed(3)}, ${loc.lng.toFixed(3)}`;
 }
