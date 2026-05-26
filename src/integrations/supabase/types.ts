@@ -119,21 +119,18 @@ export type Database = {
           alias: string
           created_at: string
           id: string
-          trusted_contact: string | null
           updated_at: string
         }
         Insert: {
           alias?: string
           created_at?: string
           id: string
-          trusted_contact?: string | null
           updated_at?: string
         }
         Update: {
           alias?: string
           created_at?: string
           id?: string
-          trusted_contact?: string | null
           updated_at?: string
         }
         Relationships: []

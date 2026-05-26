@@ -236,11 +236,11 @@ export function useRequest(id: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("requests")
-        .select("*, profiles:requester_id(alias)")
+        .select("*")
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
-      return data as (RequestRow & { profiles: { alias: string } | null }) | null;
+      return data as RequestRow | null;
     },
   });
 }
@@ -256,7 +256,7 @@ export function useVisibleOpenRequests(opts: {
     queryFn: async () => {
       let q = supabase
         .from("requests")
-        .select("*, profiles:requester_id(alias)")
+        .select("*")
         .in("status", ["open", "pending_approval"])
         .order("created_at", { ascending: false });
       if (opts.scope === "groups") {
@@ -267,9 +267,7 @@ export function useVisibleOpenRequests(opts: {
       }
       const { data, error } = await q;
       if (error) throw error;
-      return ((data ?? []) as any[]).filter((r) => r.requester_id !== uid) as Array<
-        RequestRow & { profiles: { alias: string } | null }
-      >;
+      return ((data ?? []) as RequestRow[]).filter((r) => r.requester_id !== uid);
     },
   });
 }
@@ -346,11 +344,29 @@ export function useClaims(requestId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("request_claims")
-        .select("*, profiles:volunteer_id(alias)")
+        .select("*")
         .eq("request_id", requestId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Array<ClaimRow & { profiles: { alias: string } | null }>;
+      return (data ?? []) as ClaimRow[];
+    },
+  });
+}
+
+export function useAliases(userIds: string[]) {
+  const ids = Array.from(new Set(userIds.filter(Boolean)));
+  return useQuery({
+    queryKey: ["aliases", ids.sort().join(",")],
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, alias")
+        .in("id", ids);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      for (const p of data ?? []) map[p.id] = p.alias;
+      return map;
     },
   });
 }
@@ -430,7 +446,7 @@ export function useOffers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offers")
-        .select("*, profiles:offerer_id(alias)")
+        .select("*")
         .eq("active", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
