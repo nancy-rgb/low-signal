@@ -16,6 +16,7 @@ import { Route as OffersRouteImport } from './routes/offers'
 import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OffersIndexRouteImport } from './routes/offers.index'
 import { Route as VolunteerIdRouteImport } from './routes/volunteer.$id'
 import { Route as RequestNewRouteImport } from './routes/request.new'
 import { Route as RequestIdRouteImport } from './routes/request.$id'
@@ -57,6 +58,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OffersIndexRoute = OffersIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => OffersRoute,
+} as any)
 const VolunteerIdRoute = VolunteerIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -95,13 +101,13 @@ export interface FileRoutesByFullPath {
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
+  '/offers/': typeof OffersIndexRoute
   '/api/public/sweep': typeof ApiPublicSweepRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/directory': typeof DirectoryRoute
   '/groups': typeof GroupsRoute
-  '/offers': typeof OffersRouteWithChildren
   '/requests': typeof RequestsRoute
   '/settings': typeof SettingsRoute
   '/volunteer': typeof VolunteerRouteWithChildren
@@ -109,6 +115,7 @@ export interface FileRoutesByTo {
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
+  '/offers': typeof OffersIndexRoute
   '/api/public/sweep': typeof ApiPublicSweepRoute
 }
 export interface FileRoutesById {
@@ -124,6 +131,7 @@ export interface FileRoutesById {
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
+  '/offers/': typeof OffersIndexRoute
   '/api/public/sweep': typeof ApiPublicSweepRoute
 }
 export interface FileRouteTypes {
@@ -140,13 +148,13 @@ export interface FileRouteTypes {
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
+    | '/offers/'
     | '/api/public/sweep'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/directory'
     | '/groups'
-    | '/offers'
     | '/requests'
     | '/settings'
     | '/volunteer'
@@ -154,6 +162,7 @@ export interface FileRouteTypes {
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
+    | '/offers'
     | '/api/public/sweep'
   id:
     | '__root__'
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
+    | '/offers/'
     | '/api/public/sweep'
   fileRoutesById: FileRoutesById
 }
@@ -235,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/offers/': {
+      id: '/offers/'
+      path: '/'
+      fullPath: '/offers/'
+      preLoaderRoute: typeof OffersIndexRouteImport
+      parentRoute: typeof OffersRoute
+    }
     '/volunteer/$id': {
       id: '/volunteer/$id'
       path: '/$id'
@@ -275,10 +292,12 @@ declare module '@tanstack/react-router' {
 
 interface OffersRouteChildren {
   OffersNewRoute: typeof OffersNewRoute
+  OffersIndexRoute: typeof OffersIndexRoute
 }
 
 const OffersRouteChildren: OffersRouteChildren = {
   OffersNewRoute: OffersNewRoute,
+  OffersIndexRoute: OffersIndexRoute,
 }
 
 const OffersRouteWithChildren =
@@ -311,3 +330,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
