@@ -38,8 +38,7 @@ export function pushSupported(): boolean {
   return (
     "serviceWorker" in navigator &&
     "PushManager" in window &&
-    "Notification" in window &&
-    !!VAPID_PUBLIC
+    "Notification" in window
   );
 }
 
