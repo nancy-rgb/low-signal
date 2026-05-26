@@ -536,6 +536,12 @@ export const session = {
   getMode(): SessionMode {
     return sessionMode;
   },
+  getActiveKey(): CryptoKey | null {
+    return activeKey;
+  },
+  getActiveSlot(): Slot {
+    return activeSlot;
+  },
   hasRealPin(): boolean {
     return !!vault.real;
   },
