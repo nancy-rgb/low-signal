@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { createIntakeProvider } from "./ai-gateway.server";
 
 // Mirror the HelpType union from data.ts. Kept here so this file does not
 // pull React imports through the server bundle.
@@ -46,11 +46,11 @@ RULES:
 export const parseIntake = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ transcript: z.string().min(1).max(4000) }).parse(input))
   .handler(async ({ data }) => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key) throw new Error("Missing ANTHROPIC_API_KEY");
 
-    const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-3-flash-preview");
+    const provider = createIntakeProvider(key);
+    const model = provider("claude-haiku-4-5");
 
     try {
       const { output } = await generateText({
