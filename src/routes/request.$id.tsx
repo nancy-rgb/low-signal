@@ -46,6 +46,18 @@ function RequestDetail() {
   // Realtime subscriptions for live updates
   useRealtimeRequest(id);
 
+  // Derive peer (the OTHER participant) for E2EE
+  const approvedClaimEarly = (claims ?? []).find((c) => c.status === "approved");
+  const peerId =
+    req && user
+      ? req.requester_id === user.id
+        ? approvedClaimEarly?.volunteer_id ?? null
+        : approvedClaimEarly?.volunteer_id === user.id
+        ? req.requester_id
+        : null
+      : null;
+  const { data: peerPubKey } = usePeerPublicKey(peerId);
+
   const [msgText, setMsgText] = useState("");
   const [customCheckIn, setCustomCheckIn] = useState("");
   const msgEndRef = useRef<HTMLDivElement>(null);
