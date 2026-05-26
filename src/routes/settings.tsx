@@ -3,7 +3,15 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/use-auth";
 import { session, store, useStore } from "@/lib/requests-store";
-import { signOut, useMyGroups, useProfile, useUpdateProfile } from "@/lib/data";
+import {
+  signOut,
+  useMyGroups,
+  useProfile,
+  useUpdateProfile,
+  useTrustedContacts,
+  useAddTrustedContact,
+  useDeleteTrustedContact,
+} from "@/lib/data";
 import { rebindE2EEToPin } from "@/lib/e2ee";
 
 export const Route = createFileRoute("/settings")({ component: Settings });
