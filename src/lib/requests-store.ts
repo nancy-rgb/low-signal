@@ -185,6 +185,23 @@ export const store = {
   setAlias(alias: string) {
     set((s) => ({ ...s, user: { ...s.user, alias } }));
   },
+  setTrustedContact(contact: string) {
+    set((s) => ({ ...s, user: { ...s.user, trustedContact: contact || undefined } }));
+  },
+  setPins(realPin: string | undefined, duressPin: string | undefined) {
+    set((s) => ({
+      ...s,
+      user: { ...s.user, realPin: realPin || undefined, duressPin: duressPin || undefined },
+    }));
+  },
+  setSafetyDeadline(id: string, deadline: number | undefined) {
+    set((s) => ({
+      ...s,
+      requests: s.requests.map((r) =>
+        r.id === id ? { ...r, safetyDeadline: deadline } : r
+      ),
+    }));
+  },
 
   // Groups
   createGroup(name: string) {
