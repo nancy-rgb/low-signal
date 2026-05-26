@@ -131,9 +131,15 @@ function Settings() {
         </section>
 
         <section className="rounded-md border border-input bg-card p-3">
-          <div className="mb-2 text-sm font-medium">App PINs</div>
+          <div className="mb-1 text-sm font-medium">App PINs &amp; encryption</div>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Status: {user.pinSet ? "encrypted ✓" : "not encrypted yet"}
+            {user.duressSet ? " · decoy set ✓" : ""}
+          </p>
           <label className="block text-xs">
-            <span className="mb-1 block text-muted-foreground">Real PIN (unlocks app)</span>
+            <span className="mb-1 block text-muted-foreground">
+              Real PIN {user.pinSet ? "(re-enter to change)" : "(unlocks app)"}
+            </span>
             <input
               type="password"
               inputMode="numeric"
@@ -155,12 +161,14 @@ function Settings() {
             />
           </label>
           {pinErr && <p className="mt-2 text-xs text-destructive">{pinErr}</p>}
+          {pinMsg && <p className="mt-2 text-xs text-emerald-500">{pinMsg}</p>}
           <div className="mt-2 flex gap-2">
             <button
               onClick={savePins}
-              className="flex-1 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
-            >Save PINs</button>
-            {user.realPin && (
+              disabled={pinBusy}
+              className="flex-1 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >{pinBusy ? "Saving…" : "Save PINs"}</button>
+            {user.pinSet && (
               <button
                 onClick={() => session.lock()}
                 className="rounded-md border border-input px-3 py-2 text-sm"
@@ -168,10 +176,12 @@ function Settings() {
             )}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Entering the duress PIN opens an empty, clean-looking version of the app.
-            Real data isn't shown until you re-enter the real PIN.
+            Data is encrypted at rest using AES-GCM with a key derived from your PIN
+            (PBKDF2, 150k iterations). The PIN is never stored. Entering the duress PIN
+            opens a separate, empty decoy version of the app — real data stays hidden.
           </p>
         </section>
+
 
         <section className="rounded-md border border-input bg-card p-3 text-sm">
           <div className="mb-2 font-medium">Groups</div>
