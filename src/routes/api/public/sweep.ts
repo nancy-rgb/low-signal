@@ -19,7 +19,8 @@ export const Route = createFileRoute("/api/public/sweep")({
           });
         }
 
-        return new Response(JSON.stringify({ expired: data?.expired_count ?? 0, safety_alerts: data?.safety_alert_count ?? 0 }), {
+        const row = Array.isArray(data) ? data[0] : data;
+        return new Response(JSON.stringify({ expired: row?.expired_count ?? 0, safety_alerts: row?.safety_alert_count ?? 0 }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
