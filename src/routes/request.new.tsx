@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { getCurrentLocation, type Coords } from "@/lib/geo";
 import { AppShell } from "@/components/AppShell";
+import { MicButton } from "@/components/MicButton";
 import {
   HELP_TYPES,
   useCreateRequest,
@@ -110,7 +111,10 @@ function NewRequest() {
               <div>Lng: {coords.lng.toFixed(5)}</div>
             </div>
             <label className="text-sm">
-              <span className="mb-1 block">Area label (optional)</span>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span>Area label (optional)</span>
+                <MicButton onTranscript={(t) => setLocLabel((s) => (s ? s + " " : "") + t)} label="Dictate" />
+              </div>
               <input
                 value={locLabel}
                 onChange={(e) => setLocLabel(e.target.value)}
@@ -194,7 +198,10 @@ function NewRequest() {
             </label>
 
             <label className="text-sm">
-              <span className="mb-1 block">Notes (optional)</span>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span>Notes (optional)</span>
+                <MicButton onTranscript={(t) => setNotes((s) => (s ? s + " " : "") + t)} label="Dictate" />
+              </div>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

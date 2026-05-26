@@ -5,8 +5,11 @@ import { getCurrentLocation, type Coords } from "@/lib/geo";
 import {
   HELP_TYPES,
   distanceKm,
+  skillMatchesHelpType,
   useMyGroups,
+  useProfile,
   useVisibleOpenRequests,
+  type Skill,
 } from "@/lib/data";
 
 export const Route = createFileRoute("/volunteer")({ component: VolunteerHome });
