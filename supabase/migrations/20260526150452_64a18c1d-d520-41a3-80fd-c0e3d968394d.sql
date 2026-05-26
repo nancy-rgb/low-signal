@@ -1,4 +1,8 @@
 
+-- Extensions required by later DDL (gen_random_bytes for invite codes)
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+SET search_path TO public, extensions;
+
 -- Roles
 CREATE TYPE public.app_role AS ENUM ('admin', 'coordinator', 'volunteer', 'member');
 
