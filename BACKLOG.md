@@ -77,7 +77,9 @@ Tracking what's planned, in progress, and intentionally deferred.
 
 
 ## Backlog
-- Volunteer skill tags (medical, legal, driver, translator) → smarter routing
+- Volunteer skill tags (medical, legal, driver, translator, shelter, supplies) → smarter routing **(done — profile.skills + "Match my skills" filter on volunteer page)**
+- Voice dictation on request form (per-field mic, Web Speech API) **(done)**
+- Conversational voice intake — AI-parsed free-form speech fills the whole request form (Lovable AI Gateway)
 - Capacity hints on volunteers (can host N, has vehicle)
 - Multi-volunteer chains (travel handoff across cells)
 - Manual map-pin entry (avoid live GPS share)

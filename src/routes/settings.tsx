@@ -12,6 +12,8 @@ import {
   useTrustedContacts,
   useAddTrustedContact,
   useDeleteTrustedContact,
+  SKILLS,
+  type Skill,
 } from "@/lib/data";
 import { rebindE2EEToPin } from "@/lib/e2ee";
 
@@ -104,6 +106,36 @@ function Settings() {
           <p className="mt-2 text-xs text-muted-foreground">
             Shown to people who help you. Never use your real name.
           </p>
+        </section>
+
+        <section className="rounded-md border border-input bg-card p-3">
+          <div className="mb-1 text-sm font-medium">My skills</div>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Helps surface requests you can actually assist with. Visible to volunteers in your groups.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {SKILLS.map((s) => {
+              const active = (profile?.skills ?? []).includes(s.id);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={async () => {
+                    const current = (profile?.skills ?? []) as Skill[];
+                    const next = active ? current.filter((x) => x !== s.id) : [...current, s.id];
+                    await update.mutateAsync({ skills: next });
+                  }}
+                  title={s.hint}
+                  className={`min-h-9 rounded-full border px-3 py-1.5 text-xs ${
+                    active ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         <section className="rounded-md border border-input bg-card p-3">

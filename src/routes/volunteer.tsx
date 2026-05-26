@@ -5,18 +5,24 @@ import { getCurrentLocation, type Coords } from "@/lib/geo";
 import {
   HELP_TYPES,
   distanceKm,
+  skillMatchesHelpType,
   useMyGroups,
+  useProfile,
   useVisibleOpenRequests,
+  type Skill,
 } from "@/lib/data";
 
 export const Route = createFileRoute("/volunteer")({ component: VolunteerHome });
 
 function VolunteerHome() {
   const { data: groups = [] } = useMyGroups();
+  const { data: profile } = useProfile();
+  const mySkills = ((profile?.skills ?? []) as Skill[]);
   const [me, setMe] = useState<Coords | null>(null);
   const [radius, setRadius] = useState(25);
   const [err, setErr] = useState("");
   const [scope, setScope] = useState<"groups" | "public">("groups");
+  const [skillOnly, setSkillOnly] = useState(false);
 
   useEffect(() => {
     getCurrentLocation().then(setMe).catch((e) => setErr(e.message));
@@ -27,8 +33,12 @@ function VolunteerHome() {
     groupIds: groups.map((g) => g.id),
   });
 
+  const skillFiltered = skillOnly && mySkills.length > 0
+    ? open.filter((r) => mySkills.some((s) => skillMatchesHelpType(s, r.help_type)))
+    : open;
+
   const list = me
-    ? open
+    ? skillFiltered
         .map((r) => ({
           r,
           km:
@@ -38,7 +48,7 @@ function VolunteerHome() {
         }))
         .filter((x) => Number.isNaN(x.km) || x.km <= radius)
         .sort((a, b) => (Number.isNaN(a.km) ? 1 : Number.isNaN(b.km) ? -1 : a.km - b.km))
-    : open.map((r) => ({ r, km: NaN }));
+    : skillFiltered.map((r) => ({ r, km: NaN }));
 
   return (
     <AppShell>
@@ -68,6 +78,19 @@ function VolunteerHome() {
           Radius: {radius} km
           <input type="range" min={1} max={200} value={radius} onChange={(e) => setRadius(+e.target.value)} className="w-full" />
         </label>
+
+        {mySkills.length > 0 && (
+          <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={skillOnly}
+              onChange={(e) => setSkillOnly(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Match my skills ({mySkills.join(", ")})
+          </label>
+        )}
+
 
         <ul className="mt-2 flex flex-col gap-2">
           {list.length === 0 && (
