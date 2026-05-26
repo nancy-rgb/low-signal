@@ -6,6 +6,7 @@ export type HelpType =
   | "secure_travel"
   | "supplies"
   | "medical"
+  | "medical_supplies"
   | "legal"
   | "message_relay"
   | "other";
@@ -14,7 +15,8 @@ export const HELP_TYPES: { id: HelpType; label: string; hint: string }[] = [
   { id: "safe_shelter", label: "Safe shelter", hint: "Temporary place to stay" },
   { id: "secure_travel", label: "Secure travel", hint: "Help moving to another location" },
   { id: "supplies", label: "Supplies", hint: "Food, water, clothing, hygiene" },
-  { id: "medical", label: "Medical", hint: "First aid, medication, doctor contact" },
+  { id: "medical", label: "Medical help", hint: "First aid, treatment, doctor contact" },
+  { id: "medical_supplies", label: "Medical supplies", hint: "Medication, bandages, equipment" },
   { id: "legal", label: "Legal aid", hint: "Lawyer or legal advice" },
   { id: "message_relay", label: "Pass a message", hint: "Relay a message to a contact" },
   { id: "other", label: "Other", hint: "Describe in notes" },
@@ -27,6 +29,7 @@ export const OFFER_TYPES: { id: OfferType; label: string }[] = [
   { id: "transport", label: "Driving / transport" },
   { id: "supplies", label: "Supplies to share" },
   { id: "medical", label: "Medical skills" },
+  { id: "medical_supplies", label: "Medical supplies to share" },
   { id: "legal", label: "Legal skills" },
   { id: "message_relay", label: "Can relay messages" },
   { id: "other", label: "Other" },
