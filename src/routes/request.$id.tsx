@@ -104,6 +104,12 @@ function RequestDetail() {
           </section>
         )}
 
+        {/* Safety timer */}
+        {isOwner && req.status !== "completed" && req.status !== "cancelled" && req.status !== "expired" && (
+          <SafetyTimer req={req} />
+        )}
+
+
         {/* Check-ins */}
         {canParticipate && (req.status === "claimed" || req.status === "pending_approval") && (
           <section className="space-y-2 rounded-md border border-input bg-card p-3">
