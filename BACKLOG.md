@@ -38,11 +38,20 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Realtime subscriptions for live updates on request detail
 - `/api/public/sweep` cron endpoint for expired requests + safety deadline alerts
 
-## Next up (Phase 4)
-- True end-to-end encryption for messages (Signal-style key exchange)
-- Push notifications without sensitive content in payload
-- Background safety-timer alerts (notify trusted contact server-side if deadline passes)
-- Attach Supabase auth to server functions (for admin/moderator routes)
+## Done (Phase 4 — E2EE messaging)
+- Per-user ECDH P-256 long-term keypair; public key published to `profiles.public_key`, private key stored locally (`localStorage`).
+- ECDH → AES-GCM 256 envelope `{v:1, iv, ct}` for each message; encrypt before insert, decrypt on read.
+- Graceful fallback for legacy plaintext messages; "decrypting…" / "[cannot decrypt]" states.
+- `useEnsureKeypair()` runs on auth; idempotent setup / republish.
+
+## Next up (Phase 5)
+- PIN-wrap the local private key (currently plaintext in localStorage — fine for v1, weak vs device seizure).
+- Forward secrecy: ephemeral per-conversation keys or double-ratchet.
+- Key rotation flow + multi-device key sync (encrypted backup).
+- Push notifications without sensitive content in payload.
+- Background safety-timer alerts (notify trusted contact server-side if deadline passes).
+- Attach Supabase auth to server functions (for admin/moderator routes).
+
 
 ## Backlog
 - Volunteer skill tags (medical, legal, driver, translator) → smarter routing
