@@ -126,6 +126,64 @@ function Settings() {
         </section>
 
         <section className="rounded-md border border-input bg-card p-3">
+          <div className="mb-2 text-sm font-medium">Safety-alert contacts (server-side)</div>
+          <p className="mb-3 text-xs text-muted-foreground">
+            If a safety check-in deadline lapses, these people get an alert email. Stored on the server. Email only — no message body.
+          </p>
+          {trustedContacts.length > 0 && (
+            <ul className="mb-3 space-y-1.5">
+              {trustedContacts.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-2 rounded-md border border-input bg-background px-2 py-1.5 text-xs">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{c.label}</div>
+                    <div className="truncate text-muted-foreground">{c.email}</div>
+                  </div>
+                  <button
+                    onClick={() => delContact.mutate(c.id)}
+                    className="rounded-md border border-input px-2 py-1 text-xs text-destructive"
+                  >Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex flex-col gap-2">
+            <input
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              maxLength={64}
+              placeholder="Label (e.g. Sister M)"
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            <input
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              maxLength={120}
+              type="email"
+              placeholder="email@example.com"
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            {contactErr && <p className="text-xs text-destructive">{contactErr}</p>}
+            <button
+              onClick={async () => {
+                setContactErr("");
+                const label = newLabel.trim();
+                const email = newEmail.trim();
+                if (!label || !email) return setContactErr("Label and email required.");
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setContactErr("Invalid email.");
+                try {
+                  await addContact.mutateAsync({ label, email });
+                  setNewLabel(""); setNewEmail("");
+                } catch (e) {
+                  setContactErr(e instanceof Error ? e.message : "Failed to add.");
+                }
+              }}
+              disabled={addContact.isPending}
+              className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >{addContact.isPending ? "Adding…" : "Add contact"}</button>
+          </div>
+        </section>
+
+        <section className="rounded-md border border-input bg-card p-3">
           <div className="mb-1 text-sm font-medium">App PINs &amp; encryption (on-device)</div>
           <p className="mb-2 text-xs text-muted-foreground">
             Status: {localUser.pinSet ? "encrypted ✓" : "not encrypted"}
