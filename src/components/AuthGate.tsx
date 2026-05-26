@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/use-auth";
 import LowSignalLogo from "@/components/LowSignalLogo";
 
@@ -48,20 +47,6 @@ function AuthScreen() {
     } catch (e) {
       setErr((e as Error).message);
     } finally {
-      setBusy(false);
-    }
-  }
-
-  async function google() {
-    setErr("");
-    setBusy(true);
-    try {
-      const res = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-      if (res.error) throw res.error;
-    } catch (e) {
-      setErr((e as Error).message);
       setBusy(false);
     }
   }
@@ -126,18 +111,6 @@ function AuthScreen() {
           {busy ? "…" : mode === "signin" ? "Sign in" : "Create account"}
         </button>
       </form>
-
-      <div className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <div className="h-px flex-1 bg-input" /> or <div className="h-px flex-1 bg-input" />
-      </div>
-
-      <button
-        onClick={google}
-        disabled={busy}
-        className="rounded-md border border-input bg-card px-4 py-3 text-sm font-medium disabled:opacity-50"
-      >
-        Continue with Google
-      </button>
 
       <button
         onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
