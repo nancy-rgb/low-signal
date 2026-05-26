@@ -1,4 +1,12 @@
 import { useSyncExternalStore } from "react";
+import {
+  deriveKey,
+  encryptJSON,
+  decryptJSON,
+  randomBytes,
+  blobSalt,
+  type EncryptedBlob,
+} from "./crypto";
 
 // ---------- Types ----------
 export type HelpType =
