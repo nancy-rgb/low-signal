@@ -1,10 +1,20 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { getVapidPublicKey } from "./push.functions";
 
-// Public VAPID key — safe to expose. Server holds the matching private key.
-// If unset, push features quietly no-op until secrets are configured.
-const VAPID_PUBLIC = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+// Cache the VAPID public key once fetched.
+let vapidPublicCache: string | null | undefined;
+async function loadVapidPublic(): Promise<string | null> {
+  if (vapidPublicCache !== undefined) return vapidPublicCache;
+  try {
+    const { publicKey } = await getVapidPublicKey();
+    vapidPublicCache = publicKey ?? null;
+  } catch {
+    vapidPublicCache = null;
+  }
+  return vapidPublicCache;
+}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -28,8 +38,7 @@ export function pushSupported(): boolean {
   return (
     "serviceWorker" in navigator &&
     "PushManager" in window &&
-    "Notification" in window &&
-    !!VAPID_PUBLIC
+    "Notification" in window
   );
 }
 
@@ -82,7 +91,8 @@ async function saveSubscription(sub: PushSubscription) {
 
 export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string }> {
   if (!pushSupported()) return { ok: false, reason: "Push not supported on this device/browser." };
-  if (!VAPID_PUBLIC) return { ok: false, reason: "Push not configured yet." };
+  const vapidPublic = await loadVapidPublic();
+  if (!vapidPublic) return { ok: false, reason: "Push not configured yet." };
 
   const perm = await Notification.requestPermission();
   if (perm !== "granted") return { ok: false, reason: "Permission denied." };
@@ -94,7 +104,7 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC).buffer as ArrayBuffer,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublic).buffer as ArrayBuffer,
     });
   }
   await saveSubscription(sub);

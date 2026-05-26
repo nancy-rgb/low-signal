@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendPushToUser } from "@/lib/push.server";
 
 export const Route = createFileRoute("/api/public/sweep")({
   server: {
@@ -42,6 +43,12 @@ export const Route = createFileRoute("/api/public/sweep")({
               `[safety-alert] request=${a.request_id} requester=${a.requester_id} contacts=${count}`,
               contacts,
             );
+            // Push the requester themselves — they may have missed the deadline.
+            await sendPushToUser(a.requester_id, {
+              title: "Safety check-in overdue",
+              body: "Tap to confirm you're safe.",
+              url: `/request/${a.request_id}`,
+            });
             await supabaseAdmin
               .from("safety_alerts")
               .update({ delivered: true, contacts_notified: count })
