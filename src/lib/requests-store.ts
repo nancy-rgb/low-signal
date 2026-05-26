@@ -138,6 +138,29 @@ function genId(n = 8) {
   return Math.random().toString(36).slice(2, 2 + n);
 }
 
+// ---------- Storage / vault ----------
+// Disk format v3: { version: 3, plain?: AppState, real?: EncryptedBlob, decoy?: EncryptedBlob }
+// - plain: only used when no real PIN is set yet (no encryption).
+// - real:  AES-GCM-encrypted full state, key derived from the real PIN.
+// - decoy: AES-GCM-encrypted decoy state, key derived from the duress PIN.
+// The PIN itself is NEVER persisted. Validity is checked by attempting decrypt.
+
+const VAULT_KEY = "lov_vault_v3";
+const LEGACY_KEY = "lov_state_v2";
+
+interface Vault {
+  version: 3;
+  plain?: AppState;
+  real?: EncryptedBlob;
+  decoy?: EncryptedBlob;
+}
+
+type Slot = "plain" | "real" | "decoy";
+
+function genId(n = 8) {
+  return Math.random().toString(36).slice(2, 2 + n);
+}
+
 function defaultState(): AppState {
   return {
     user: { id: genId(), alias: "", groupIds: [] },
@@ -147,25 +170,73 @@ function defaultState(): AppState {
   };
 }
 
-function read(): AppState {
-  if (typeof window === "undefined") return defaultState();
+function readVault(): Vault {
+  if (typeof window === "undefined") return { version: 3 };
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultState();
-    const parsed = JSON.parse(raw);
-    return { ...defaultState(), ...parsed };
+    const raw = localStorage.getItem(VAULT_KEY);
+    if (raw) {
+      const v = JSON.parse(raw) as Vault;
+      if (v && v.version === 3) return v;
+    }
+    // Legacy migration from v2 plaintext.
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) {
+      const parsed = JSON.parse(legacy);
+      // Strip any legacy plaintext PIN fields.
+      if (parsed?.user) {
+        delete parsed.user.realPin;
+        delete parsed.user.duressPin;
+      }
+      const v: Vault = { version: 3, plain: { ...defaultState(), ...parsed } };
+      localStorage.setItem(VAULT_KEY, JSON.stringify(v));
+      localStorage.removeItem(LEGACY_KEY);
+      return v;
+    }
   } catch {
-    return defaultState();
+    /* fall through */
   }
+  return { version: 3 };
 }
 
-let state: AppState = read();
+let vault: Vault = readVault();
+
+// In-memory active state and its encryption key.
+let state: AppState = vault.plain ?? defaultState();
+let activeSlot: Slot = vault.plain ? "plain" : "real"; // "real" while locked, set on unlock
+let activeKey: CryptoKey | null = null;
+let activeSalt: Uint8Array | null = null;
+
 const subs = new Set<() => void>();
 
-function emit() {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(KEY, JSON.stringify(state));
+function writeVault() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+}
+
+function persistActive() {
+  if (activeSlot === "plain") {
+    vault = { ...vault, plain: state, real: undefined, decoy: undefined };
+    writeVault();
+    return;
   }
+  if (!activeKey || !activeSalt) return; // locked / not unlocked yet
+  const key = activeKey;
+  const salt = activeSalt;
+  const slot = activeSlot;
+  const snapshot = state;
+  // Fire-and-forget; ordering is preserved by single-threaded JS scheduling.
+  encryptJSON(key, snapshot, salt)
+    .then((blob) => {
+      vault = { ...vault, [slot]: blob, plain: undefined } as Vault;
+      writeVault();
+    })
+    .catch(() => {
+      /* ignore */
+    });
+}
+
+function emit() {
+  persistActive();
   subs.forEach((s) => s());
 }
 
