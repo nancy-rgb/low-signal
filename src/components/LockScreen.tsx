@@ -31,7 +31,7 @@ export function LockScreen() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center bg-background p-6">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center bg-background p-6">
       <h1 className="text-2xl font-bold">Locked</h1>
       <p className="mt-1 text-sm text-muted-foreground">Enter your PIN</p>
       <form onSubmit={submit} className="mt-6 w-full max-w-xs">

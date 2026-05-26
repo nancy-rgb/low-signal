@@ -9,7 +9,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
         Loading…
       </div>
     );
@@ -67,7 +67,7 @@ function AuthScreen() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center bg-background p-6">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center bg-background p-6">
       <div className="mb-2">
         <LowSignalLogo size={40} />
       </div>
