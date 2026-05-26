@@ -621,3 +621,86 @@ export async function signOut() {
     clearLocalE2EEKey(user.id);
   }
 }
+
+// ---------- Trusted contacts (server-side, for safety alerts) ----------
+export type TrustedContact = {
+  id: string;
+  user_id: string;
+  label: string;
+  email: string;
+  created_at: string;
+};
+
+export function useTrustedContacts() {
+  const { user } = useAuth();
+  const uid = user?.id;
+  return useQuery({
+    queryKey: ["trusted_contacts", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trusted_contacts")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as TrustedContact[];
+    },
+  });
+}
+
+export function useAddTrustedContact() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const uid = user?.id;
+  return useMutation({
+    mutationFn: async (input: { label: string; email: string }) => {
+      if (!uid) throw new Error("not signed in");
+      const { error } = await supabase.from("trusted_contacts").insert({
+        user_id: uid,
+        label: input.label,
+        email: input.email,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["trusted_contacts", uid] }),
+  });
+}
+
+export function useDeleteTrustedContact() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const uid = user?.id;
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("trusted_contacts").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["trusted_contacts", uid] }),
+  });
+}
+
+// ---------- Safety alerts (read-only for the requester) ----------
+export type SafetyAlert = {
+  request_id: string;
+  requester_id: string;
+  alerted_at: string;
+  contacts_notified: number;
+  delivered: boolean;
+};
+
+export function useMySafetyAlerts() {
+  const { user } = useAuth();
+  const uid = user?.id;
+  return useQuery({
+    queryKey: ["safety_alerts", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("safety_alerts")
+        .select("*")
+        .order("alerted_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as SafetyAlert[];
+    },
+  });
+}
