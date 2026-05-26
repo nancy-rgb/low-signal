@@ -342,5 +342,7 @@ export async function decryptFromPeer(
 // ---- cache invalidation on signout / wipe ----
 export function clearLocalE2EEKey(userId: string) {
   if (typeof window === "undefined") return;
+  unlocked.delete(userId);
   localStorage.removeItem(`${PRIV_KEY_STORAGE}:${userId}`);
+  localStorage.removeItem(`${PRIV_KEY_WRAPPED}:${userId}`);
 }
