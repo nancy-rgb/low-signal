@@ -231,8 +231,8 @@ function Settings() {
           </div>
         </section>
 
-        <section className="rounded-md border border-input bg-card p-3 text-sm">
         <PushSettings />
+
 
         <section className="rounded-md border border-input bg-card p-3 text-sm">
           <div className="mb-2 font-medium">Groups</div>
