@@ -53,16 +53,15 @@ export const parseIntake = createServerFn({ method: "POST" })
     const model = gateway("google/gemini-3-flash-preview");
 
     try {
-      const { experimental_output } = await generateText({
+      const { output } = await generateText({
         model,
         system: SYSTEM_PROMPT,
         prompt: `Transcript:\n${data.transcript}`,
-        experimental_output: Output.object({ schema: IntakeSchema }),
+        output: Output.object({ schema: IntakeSchema }),
       });
-      return experimental_output as ParsedIntake;
+      return output as ParsedIntake;
     } catch (e) {
       const msg = (e as Error).message || "Parse failed";
-      // Bubble a clean message to the client.
       throw new Error(msg);
     }
   });
