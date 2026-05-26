@@ -490,6 +490,127 @@ export function useDeleteOffer() {
   });
 }
 
+// ---------- Check-ins ----------
+export type CheckInRow = {
+  id: string;
+  request_id: string;
+  sender_id: string;
+  kind: "on_the_way" | "arrived" | "delayed" | "safe" | "custom";
+  note: string | null;
+  created_at: string;
+};
+
+export function useCheckIns(requestId: string) {
+  return useQuery({
+    queryKey: ["check_ins", requestId],
+    enabled: !!requestId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("check_ins")
+        .select("*")
+        .eq("request_id", requestId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as CheckInRow[];
+    },
+  });
+}
+
+export function useSendCheckIn() {
+  const qc = useQueryClient();
+  const uid = useUserId();
+  return useMutation({
+    mutationFn: async (input: {
+      request_id: string;
+      kind: CheckInRow["kind"];
+      note?: string;
+    }) => {
+      if (!uid) throw new Error("not signed in");
+      const { error } = await supabase.from("check_ins").insert({
+        request_id: input.request_id,
+        sender_id: uid,
+        kind: input.kind,
+        note: input.note || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_r, v) => {
+      qc.invalidateQueries({ queryKey: ["check_ins", v.request_id] });
+    },
+  });
+}
+
+// ---------- Messages ----------
+export type MessageRow = {
+  id: string;
+  request_id: string;
+  sender_id: string;
+  ciphertext: string;
+  created_at: string;
+};
+
+export function useMessages(requestId: string) {
+  return useQuery({
+    queryKey: ["messages", requestId],
+    enabled: !!requestId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("request_id", requestId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as MessageRow[];
+    },
+  });
+}
+
+export function useSendMessage() {
+  const qc = useQueryClient();
+  const uid = useUserId();
+  return useMutation({
+    mutationFn: async (input: {
+      request_id: string;
+      ciphertext: string;
+    }) => {
+      if (!uid) throw new Error("not signed in");
+      const { error } = await supabase.from("messages").insert({
+        request_id: input.request_id,
+        sender_id: uid,
+        ciphertext: input.ciphertext,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_r, v) => {
+      qc.invalidateQueries({ queryKey: ["messages", v.request_id] });
+    },
+  });
+}
+
+// ---------- Realtime subscriptions ----------
+export function useRealtimeRequest(requestId: string) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!requestId) return;
+    const ch = supabase
+      .channel(`request:${requestId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "check_ins", filter: `request_id=eq.${requestId}` },
+        () => qc.invalidateQueries({ queryKey: ["check_ins", requestId] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `request_id=eq.${requestId}` },
+        () => qc.invalidateQueries({ queryKey: ["messages", requestId] })
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [requestId, qc]);
+}
+
 // ---------- Sign out ----------
 export async function signOut() {
   await supabase.auth.signOut();
