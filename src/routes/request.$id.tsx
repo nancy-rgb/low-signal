@@ -14,6 +14,12 @@ import {
   useSendMessage,
   useRealtimeRequest,
 } from "@/lib/data";
+import {
+  usePeerPublicKey,
+  encryptForPeer,
+  decryptFromPeer,
+  isE2EEEnvelope,
+} from "@/lib/e2ee";
 import { useState, useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/request/$id")({ component: RequestDetail });
