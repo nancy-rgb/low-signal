@@ -101,6 +101,19 @@ function NewRequest() {
             >
               Skip / enter area only
             </button>
+
+            <VoiceIntake
+              onParsed={(intake) => {
+                setHelpType(intake.help_type as HelpType);
+                setUrgency(intake.urgency);
+                if (intake.area_label) setLocLabel(intake.area_label);
+                if (intake.notes) setNotes(intake.notes);
+                // Skip straight to review if we already have coords; otherwise
+                // land on the location confirmation step.
+                if (!coords) setCoords({ lat: 0, lng: 0 });
+                setStep("review");
+              }}
+            />
           </section>
         )}
 
