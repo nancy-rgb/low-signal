@@ -83,9 +83,10 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Google OAuth button removed from `AuthGate.tsx` (depended on Lovable's `/~oauth/initiate` broker). Email/password sign-in retained.
 
 ## Lovable dependencies still present (Phase 6 follow-ups)
-- `@lovable.dev/cloud-auth-js` still imported by `src/integrations/lovable/index.ts` and referenced from auth setup. Currently unused after Google removal, but the package is still installed. **Next:** delete `src/integrations/lovable/` entirely + drop the dependency.
+- ~~`@lovable.dev/cloud-auth-js`~~ **(done — `src/integrations/lovable/` deleted, package dropped, `@ai-sdk/openai-compatible` orphan also removed; bundle ~28 KB smaller)**
+- `@lovable.dev/vite-tanstack-config` is still the project's Vite preset (`vite.config.ts`). It bundles ~8 plugins (cloudflare, tanstack-start, viteReact, tailwindcss, tsConfigPaths, componentTagger, VITE_* env injection, dedupe). Removing it = rewriting `vite.config.ts` to register each plugin manually + verifying dev/build/Cloudflare bundling still works. **Next** (when ready for a dedicated session): replace the preset.
 - Migrations still carry `Lovable-Edit-ID` metadata in commit messages from earlier history. Cosmetic only.
-- No native Supabase Google OAuth wired yet. **Next** (if Google sign-in is wanted again): configure Google OAuth in Google Cloud Console → Supabase Auth → swap call site to `supabase.auth.signInWithOAuth({ provider: "google" })`.
+- No native Supabase Google OAuth wired yet. **Deferred per user.** When wanted: configure Google OAuth in Google Cloud Console → Supabase Auth → swap call site to `supabase.auth.signInWithOAuth({ provider: "google" })`.
 
 ## Next up (Phase 5e — Advanced E2EE)
 - Forward secrecy: ephemeral per-conversation keys or double-ratchet.
