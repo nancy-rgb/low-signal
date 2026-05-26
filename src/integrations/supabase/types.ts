@@ -291,6 +291,7 @@ export type Database = {
         Args: { _req: string; _user: string }
         Returns: boolean
       }
+      join_group_by_code: { Args: { _code: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "coordinator" | "volunteer" | "member"
