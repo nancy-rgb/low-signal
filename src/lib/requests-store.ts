@@ -355,9 +355,92 @@ export const store = {
 
 export function useStore<T>(selector: (s: AppState) => T): T {
   return useSyncExternalStore(
-    store.subscribe,
-    () => selector(store.getSnapshot()),
+    subscribeBoth,
+    () => selector(maskedSnapshot()),
     () => selector(store.getServerSnapshot())
+  );
+}
+
+// ---------- Session (lock + duress mode), in-memory only ----------
+export type SessionMode = "locked" | "normal" | "duress";
+
+let sessionMode: SessionMode = "normal";
+const sessionSubs = new Set<() => void>();
+
+function emitSession() {
+  sessionSubs.forEach((s) => s());
+}
+
+function subscribeBoth(cb: () => void) {
+  subs.add(cb);
+  sessionSubs.add(cb);
+  return () => {
+    subs.delete(cb);
+    sessionSubs.delete(cb);
+  };
+}
+
+// Initialize session mode based on whether a real PIN is set.
+if (typeof window !== "undefined") {
+  sessionMode = state.user.realPin ? "locked" : "normal";
+}
+
+function maskedSnapshot(): AppState {
+  // Duress: return decoy empty state, but keep alias so UI still works.
+  if (sessionMode === "duress") {
+    return {
+      user: { ...state.user, groupIds: [] },
+      groups: [],
+      requests: [],
+      offers: [],
+    };
+  }
+  return state;
+}
+
+export const session = {
+  subscribe(cb: () => void) {
+    sessionSubs.add(cb);
+    return () => sessionSubs.delete(cb);
+  },
+  getMode(): SessionMode {
+    return sessionMode;
+  },
+  attemptUnlock(pin: string): "normal" | "duress" | "invalid" {
+    const p = pin.trim();
+    if (!p) return "invalid";
+    if (state.user.realPin && p === state.user.realPin) {
+      sessionMode = "normal";
+      emitSession();
+      return "normal";
+    }
+    if (state.user.duressPin && p === state.user.duressPin) {
+      sessionMode = "duress";
+      emitSession();
+      return "duress";
+    }
+    return "invalid";
+  },
+  lock() {
+    if (state.user.realPin) {
+      sessionMode = "locked";
+      emitSession();
+    }
+  },
+  // Secret gesture: exit duress without re-locking (no UI affordance).
+  exitDuress() {
+    if (sessionMode === "duress") {
+      sessionMode = "normal";
+      emitSession();
+    }
+  },
+};
+
+export function useSessionMode(): SessionMode {
+  return useSyncExternalStore(
+    session.subscribe,
+    () => sessionMode,
+    () => "normal" as SessionMode
   );
 }
 
@@ -366,6 +449,16 @@ export function distanceKm(
   a: { lat: number; lng: number },
   b: { lat: number; lng: number }
 ) {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
