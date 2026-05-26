@@ -187,6 +187,7 @@ export type Database = {
           created_at: string
           id: string
           public_key: Json | null
+          skills: string[]
           updated_at: string
         }
         Insert: {
@@ -194,6 +195,7 @@ export type Database = {
           created_at?: string
           id: string
           public_key?: Json | null
+          skills?: string[]
           updated_at?: string
         }
         Update: {
@@ -201,6 +203,7 @@ export type Database = {
           created_at?: string
           id?: string
           public_key?: Json | null
+          skills?: string[]
           updated_at?: string
         }
         Relationships: []
