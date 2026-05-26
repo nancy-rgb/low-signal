@@ -11,15 +11,23 @@ function Settings() {
   const user = useStore((s) => s.user);
   const [alias, setAlias] = useState(user.alias);
   const [contact, setContact] = useState(user.trustedContact ?? "");
-  const [realPin, setRealPin] = useState(user.realPin ?? "");
-  const [duressPin, setDuressPin] = useState(user.duressPin ?? "");
+  const [realPin, setRealPin] = useState("");
+  const [duressPin, setDuressPin] = useState("");
   const [pinErr, setPinErr] = useState("");
+  const [pinMsg, setPinMsg] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
   const [confirmWipe, setConfirmWipe] = useState(false);
 
-  function savePins() {
+  async function savePins() {
     setPinErr("");
+    setPinMsg("");
     const r = realPin.trim();
     const d = duressPin.trim();
+    // When user.pinSet is already true and they leave realPin blank, we
+    // keep the existing PIN (don't disable encryption silently).
+    const keepExistingReal = !r && !!user.pinSet;
+    const keepExistingDuress = !d && !!user.duressSet;
+
     if (r && (r.length < 4 || !/^\d+$/.test(r))) {
       setPinErr("Real PIN must be 4–8 digits.");
       return;
@@ -32,11 +40,48 @@ function Settings() {
       setPinErr("Real and duress PIN must differ.");
       return;
     }
-    if (d && !r) {
+    if (d && !r && !user.pinSet) {
       setPinErr("Set a real PIN before setting a duress PIN.");
       return;
     }
-    store.setPins(r || undefined, d || undefined);
+
+    // Resolve effective intent.
+    const nextReal = keepExistingReal ? undefined : (r || undefined);
+    const nextDuress = keepExistingDuress ? undefined : (d || undefined);
+
+    // If keeping existing real, we can't re-derive the key from a blank PIN.
+    // In that case we only allow modifying duress, which requires the real
+    // key to be active (it already is, since we're unlocked).
+    if (keepExistingReal && nextDuress === undefined && !keepExistingDuress) {
+      // Clearing duress only.
+      setPinBusy(true);
+      try {
+        // Pass the current real "virtual" by re-using setPins with a sentinel
+        // is not possible without the PIN. So require user to type real PIN
+        // to change anything that re-encrypts the real slot.
+        setPinErr("Re-enter your real PIN to change duress settings.");
+      } finally {
+        setPinBusy(false);
+      }
+      return;
+    }
+
+    if (keepExistingReal) {
+      setPinErr("Re-enter your real PIN to change PIN settings.");
+      return;
+    }
+
+    setPinBusy(true);
+    try {
+      await store.setPins(nextReal, nextDuress);
+      setRealPin("");
+      setDuressPin("");
+      setPinMsg("PINs saved. Data is now encrypted on this device.");
+    } catch (e) {
+      setPinErr("Failed to save PINs.");
+    } finally {
+      setPinBusy(false);
+    }
   }
 
   return (
