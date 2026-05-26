@@ -131,6 +131,78 @@ async function deriveAesKey(myPriv: CryptoKey, peerPub: CryptoKey): Promise<Cryp
   );
 }
 
+// ---- PIN-wrap helpers (uses the same AES-GCM key the app vault derives from
+// the real PIN via PBKDF2 in src/lib/crypto.ts). The PIN itself never reaches
+// this module — we only receive the already-derived CryptoKey.
+
+async function wrapAndStore(userId: string, jwk: JsonWebKey, pinKey: CryptoKey) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv as BufferSource },
+    pinKey,
+    new TextEncoder().encode(JSON.stringify(jwk)) as BufferSource,
+  );
+  saveWrappedPriv(userId, { v: 2, iv: b64(iv), ct: b64(ct) });
+}
+
+async function unwrap(w: WrappedPriv, pinKey: CryptoKey): Promise<JsonWebKey> {
+  const pt = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: unb64(w.iv) as BufferSource },
+    pinKey,
+    unb64(w.ct) as BufferSource,
+  );
+  return JSON.parse(new TextDecoder().decode(pt)) as JsonWebKey;
+}
+
+// Reconcile on-disk state with current PIN/session state. Idempotent; safe to
+// call any time the session mode or active key changes.
+export async function rebindE2EEToPin(userId: string): Promise<void> {
+  const mode = session.getMode();
+  if (mode === "locked" || mode === "duress") {
+    unlocked.delete(userId);
+    return;
+  }
+  const key = session.getActiveKey();
+  const slot = session.getActiveSlot();
+  const plain = loadPlaintextPriv(userId);
+  const wrapped = loadWrappedPriv(userId);
+
+  if (slot === "real" && key) {
+    // PIN active. Ensure wrapped form on disk and cached in memory.
+    if (plain && !wrapped) {
+      await wrapAndStore(userId, plain, key);
+      unlocked.set(userId, plain);
+      deletePlaintextPriv(userId);
+    } else if (wrapped && !unlocked.has(userId)) {
+      try {
+        unlocked.set(userId, await unwrap(wrapped, key));
+      } catch (e) {
+        console.warn("[e2ee] unwrap failed (wrong key?)", e);
+      }
+    } else if (plain && wrapped) {
+      // Defensive: prefer wrapped, remove leftover plaintext.
+      deletePlaintextPriv(userId);
+    }
+  } else {
+    // No real PIN. If we still hold a wrapped blob and the unlocked JWK, write
+    // it back as plaintext so a fresh session can still read messages.
+    if (wrapped && unlocked.has(userId)) {
+      savePlaintextPriv(userId, unlocked.get(userId)!);
+      deleteWrappedPriv(userId);
+    }
+  }
+}
+
+// Hook: keep the e2ee private key in sync with the app PIN / lock state.
+export function useBindE2EEToPin() {
+  const { user } = useAuth();
+  const mode = useSessionMode();
+  useEffect(() => {
+    if (!user) return;
+    void rebindE2EEToPin(user.id);
+  }, [user, mode]);
+}
+
 // ---- encode helpers ----
 
 function b64(buf: ArrayBuffer | Uint8Array): string {
