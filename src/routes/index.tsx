@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
+import LowSignalLogo from "@/components/LowSignalLogo";
 import { useMyRequests, useMyGroups, useProfile } from "@/lib/data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Lifeline — Mutual aid for activists" },
+      { title: "Low Signal — Mutual aid for activists" },
       { name: "description", content: "Request and offer mutual aid locally." },
     ],
   }),
@@ -26,8 +27,8 @@ function Home() {
     <AppShell>
       <div className="flex flex-col gap-3 p-4">
         <header className="py-2">
-          <h1 className="text-2xl font-bold">Lifeline</h1>
-          <p className="text-sm text-muted-foreground">
+          <LowSignalLogo size={32} />
+          <p className="mt-1 text-sm text-muted-foreground">
             Signed in as {profile?.alias ?? "…"}
           </p>
         </header>
