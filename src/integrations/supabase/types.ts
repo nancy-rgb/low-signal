@@ -14,16 +14,303 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      group_members: {
+        Row: {
+          group_id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          invite_code: string
+          name: string
+          region_label: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          invite_code?: string
+          name: string
+          region_label?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          invite_code?: string
+          name?: string
+          region_label?: string | null
+        }
+        Relationships: []
+      }
+      offers: {
+        Row: {
+          active: boolean
+          area_label: string | null
+          created_at: string
+          description: string
+          group_id: string | null
+          id: string
+          offer_type: string
+          offerer_id: string
+        }
+        Insert: {
+          active?: boolean
+          area_label?: string | null
+          created_at?: string
+          description: string
+          group_id?: string | null
+          id?: string
+          offer_type: string
+          offerer_id: string
+        }
+        Update: {
+          active?: boolean
+          area_label?: string | null
+          created_at?: string
+          description?: string
+          group_id?: string | null
+          id?: string
+          offer_type?: string
+          offerer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          alias: string
+          created_at: string
+          id: string
+          trusted_contact: string | null
+          updated_at: string
+        }
+        Insert: {
+          alias?: string
+          created_at?: string
+          id: string
+          trusted_contact?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          id?: string
+          trusted_contact?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      request_claims: {
+        Row: {
+          created_at: string
+          id: string
+          meetup_point: string | null
+          meetup_type: string | null
+          note: string | null
+          request_id: string
+          status: string
+          updated_at: string
+          volunteer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meetup_point?: string | null
+          meetup_type?: string | null
+          note?: string | null
+          request_id: string
+          status?: string
+          updated_at?: string
+          volunteer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meetup_point?: string | null
+          meetup_type?: string | null
+          note?: string | null
+          request_id?: string
+          status?: string
+          updated_at?: string
+          volunteer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_claims_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      requests: {
+        Row: {
+          area_label: string | null
+          created_at: string
+          expires_at: string
+          group_id: string | null
+          help_type: Database["public"]["Enums"]["help_type"]
+          id: string
+          lat_coarse: number | null
+          lat_exact: number | null
+          lng_coarse: number | null
+          lng_exact: number | null
+          notes: string | null
+          requester_id: string
+          safety_deadline: string | null
+          status: Database["public"]["Enums"]["request_status"]
+          updated_at: string
+          urgency: Database["public"]["Enums"]["urgency_level"]
+        }
+        Insert: {
+          area_label?: string | null
+          created_at?: string
+          expires_at?: string
+          group_id?: string | null
+          help_type: Database["public"]["Enums"]["help_type"]
+          id?: string
+          lat_coarse?: number | null
+          lat_exact?: number | null
+          lng_coarse?: number | null
+          lng_exact?: number | null
+          notes?: string | null
+          requester_id: string
+          safety_deadline?: string | null
+          status?: Database["public"]["Enums"]["request_status"]
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["urgency_level"]
+        }
+        Update: {
+          area_label?: string | null
+          created_at?: string
+          expires_at?: string
+          group_id?: string | null
+          help_type?: Database["public"]["Enums"]["help_type"]
+          id?: string
+          lat_coarse?: number | null
+          lat_exact?: number | null
+          lng_coarse?: number | null
+          lng_exact?: number | null
+          notes?: string | null
+          requester_id?: string
+          safety_deadline?: string | null
+          status?: Database["public"]["Enums"]["request_status"]
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["urgency_level"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requests_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          group_id: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group: string; _user: string }
+        Returns: boolean
+      }
+      is_request_requester: {
+        Args: { _req: string; _user: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "coordinator" | "volunteer" | "member"
+      help_type:
+        | "safe_shelter"
+        | "secure_travel"
+        | "supplies"
+        | "medical"
+        | "medical_supplies"
+        | "legal"
+        | "message_relay"
+        | "other"
+      request_status:
+        | "open"
+        | "pending_approval"
+        | "claimed"
+        | "completed"
+        | "cancelled"
+        | "expired"
+      urgency_level: "low" | "medium" | "high"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +437,27 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "coordinator", "volunteer", "member"],
+      help_type: [
+        "safe_shelter",
+        "secure_travel",
+        "supplies",
+        "medical",
+        "medical_supplies",
+        "legal",
+        "message_relay",
+        "other",
+      ],
+      request_status: [
+        "open",
+        "pending_approval",
+        "claimed",
+        "completed",
+        "cancelled",
+        "expired",
+      ],
+      urgency_level: ["low", "medium", "high"],
+    },
   },
 } as const
