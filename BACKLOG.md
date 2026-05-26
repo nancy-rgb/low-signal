@@ -84,7 +84,7 @@ Tracking what's planned, in progress, and intentionally deferred.
 
 ## Lovable dependencies still present (Phase 6 follow-ups)
 - ~~`@lovable.dev/cloud-auth-js`~~ **(done — `src/integrations/lovable/` deleted, package dropped, `@ai-sdk/openai-compatible` orphan also removed; bundle ~28 KB smaller)**
-- `@lovable.dev/vite-tanstack-config` is still the project's Vite preset (`vite.config.ts`). It bundles ~8 plugins (cloudflare, tanstack-start, viteReact, tailwindcss, tsConfigPaths, componentTagger, VITE_* env injection, dedupe). Removing it = rewriting `vite.config.ts` to register each plugin manually + verifying dev/build/Cloudflare bundling still works. **Next** (when ready for a dedicated session): replace the preset.
+- ~~`@lovable.dev/vite-tanstack-config`~~ **(done — replaced by a bare `vite.config.ts` that registers tailwind, tsConfigPaths, tanstackStart, viteReact, and cloudflare (build-only) directly; Lovable-specific dev plugins like `componentTagger`, `devServerFnErrorLogger`, `devSsrErrorLogger`, `hmrGatePlugin`, `devServerBridgePlugin` were dropped — all were dev DX for Lovable's sandbox)**
 - Migrations still carry `Lovable-Edit-ID` metadata in commit messages from earlier history. Cosmetic only.
 - No native Supabase Google OAuth wired yet. **Deferred per user.** When wanted: configure Google OAuth in Google Cloud Console → Supabase Auth → swap call site to `supabase.auth.signInWithOAuth({ provider: "google" })`.
 
