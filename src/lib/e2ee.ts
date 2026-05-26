@@ -12,8 +12,20 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { session, useSessionMode } from "@/lib/requests-store";
 
-const PRIV_KEY_STORAGE = "lov_e2ee_priv_v1";
+const PRIV_KEY_STORAGE = "lov_e2ee_priv_v1"; // legacy plaintext JWK
+const PRIV_KEY_WRAPPED = "lov_e2ee_priv_v2"; // { v:2, iv, ct } — wrapped with PIN-derived AES key
+
+interface WrappedPriv {
+  v: 2;
+  iv: string; // base64
+  ct: string; // base64
+}
+
+// In-memory cache of the unwrapped private JWK, keyed by Supabase user id.
+// Cleared on lock / duress / wipe / signout. Never written to disk.
+const unlocked = new Map<string, JsonWebKey>();
 
 // ---- key gen / storage ----
 
@@ -30,7 +42,7 @@ async function generateKeypair(): Promise<{ priv: JsonWebKey; pub: JsonWebKey }>
   return { priv, pub };
 }
 
-function loadPrivJwk(userId: string): JsonWebKey | null {
+function loadPlaintextPriv(userId: string): JsonWebKey | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(`${PRIV_KEY_STORAGE}:${userId}`);
@@ -40,8 +52,51 @@ function loadPrivJwk(userId: string): JsonWebKey | null {
   }
 }
 
-function savePrivJwk(userId: string, jwk: JsonWebKey) {
+function savePlaintextPriv(userId: string, jwk: JsonWebKey) {
   localStorage.setItem(`${PRIV_KEY_STORAGE}:${userId}`, JSON.stringify(jwk));
+}
+
+function deletePlaintextPriv(userId: string) {
+  localStorage.removeItem(`${PRIV_KEY_STORAGE}:${userId}`);
+}
+
+function loadWrappedPriv(userId: string): WrappedPriv | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(`${PRIV_KEY_WRAPPED}:${userId}`);
+    if (!raw) return null;
+    const w = JSON.parse(raw) as WrappedPriv;
+    return w?.v === 2 ? w : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveWrappedPriv(userId: string, w: WrappedPriv) {
+  localStorage.setItem(`${PRIV_KEY_WRAPPED}:${userId}`, JSON.stringify(w));
+}
+
+function deleteWrappedPriv(userId: string) {
+  localStorage.removeItem(`${PRIV_KEY_WRAPPED}:${userId}`);
+}
+
+// loadPrivJwk: prefer in-memory unlocked cache, then legacy plaintext on disk.
+// Returns null when a wrapped key exists but the app is locked.
+function loadPrivJwk(userId: string): JsonWebKey | null {
+  const cached = unlocked.get(userId);
+  if (cached) return cached;
+  return loadPlaintextPriv(userId);
+}
+
+function savePrivJwk(userId: string, jwk: JsonWebKey) {
+  // New keys land in the unlocked cache + appropriate slot based on PIN state.
+  unlocked.set(userId, jwk);
+  if (session.getActiveSlot() === "real" && session.getActiveKey()) {
+    // PIN is set — wrap straight away.
+    void wrapAndStore(userId, jwk, session.getActiveKey()!);
+  } else {
+    savePlaintextPriv(userId, jwk);
+  }
 }
 
 async function importPriv(jwk: JsonWebKey): Promise<CryptoKey> {
