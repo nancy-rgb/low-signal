@@ -91,7 +91,8 @@ async function saveSubscription(sub: PushSubscription) {
 
 export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string }> {
   if (!pushSupported()) return { ok: false, reason: "Push not supported on this device/browser." };
-  if (!VAPID_PUBLIC) return { ok: false, reason: "Push not configured yet." };
+  const vapidPublic = await loadVapidPublic();
+  if (!vapidPublic) return { ok: false, reason: "Push not configured yet." };
 
   const perm = await Notification.requestPermission();
   if (perm !== "granted") return { ok: false, reason: "Permission denied." };
@@ -103,7 +104,7 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC).buffer as ArrayBuffer,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublic).buffer as ArrayBuffer,
     });
   }
   await saveSubscription(sub);
