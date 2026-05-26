@@ -20,6 +20,7 @@ import { Route as VolunteerIdRouteImport } from './routes/volunteer.$id'
 import { Route as RequestNewRouteImport } from './routes/request.new'
 import { Route as RequestIdRouteImport } from './routes/request.$id'
 import { Route as OffersNewRouteImport } from './routes/offers.new'
+import { Route as ApiPublicSweepRouteImport } from './routes/api/public/sweep'
 
 const VolunteerRoute = VolunteerRouteImport.update({
   id: '/volunteer',
@@ -76,6 +77,11 @@ const OffersNewRoute = OffersNewRouteImport.update({
   path: '/new',
   getParentRoute: () => OffersRoute,
 } as any)
+const ApiPublicSweepRoute = ApiPublicSweepRouteImport.update({
+  id: '/api/public/sweep',
+  path: '/api/public/sweep',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
+  '/api/public/sweep': typeof ApiPublicSweepRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
+  '/api/public/sweep': typeof ApiPublicSweepRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
+  '/api/public/sweep': typeof ApiPublicSweepRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
+    | '/api/public/sweep'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
+    | '/api/public/sweep'
   id:
     | '__root__'
     | '/'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
+    | '/api/public/sweep'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   VolunteerRoute: typeof VolunteerRouteWithChildren
   RequestIdRoute: typeof RequestIdRoute
   RequestNewRoute: typeof RequestNewRoute
+  ApiPublicSweepRoute: typeof ApiPublicSweepRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -250,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OffersNewRouteImport
       parentRoute: typeof OffersRoute
     }
+    '/api/public/sweep': {
+      id: '/api/public/sweep'
+      path: '/api/public/sweep'
+      fullPath: '/api/public/sweep'
+      preLoaderRoute: typeof ApiPublicSweepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   VolunteerRoute: VolunteerRouteWithChildren,
   RequestIdRoute: RequestIdRoute,
   RequestNewRoute: RequestNewRoute,
+  ApiPublicSweepRoute: ApiPublicSweepRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
