@@ -54,12 +54,26 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Settings UI to add/remove server-side trusted contacts.
 - Email transport stub: alerts are logged + counted; actual email send wires in once an email domain is configured.
 
-## Next up (Phase 5c — Push notifications)
-- Web Push (VAPID + service worker) for new messages / claim approvals / safety alerts.
-- Silent payloads only — no sensitive content in body.
+## Done (Phase 5c — Push notifications, client opt-in)
+- `push_subscriptions` table (per-user, RLS-scoped, unique by endpoint).
+- `/sw.js` service worker — push + notificationclick handlers; payloads strictly `{title, body, url}`, no PII.
+- `src/lib/push.ts` — feature-detects, skips iframes/Lovable preview, subscribes via VAPID, saves on auth.
+- Settings → "Notifications (this device)" enable/disable toggle.
+- `attachSupabaseAuth` registered in `src/start.ts` `functionMiddleware` (5b leftover).
+
+## Done (Branding + a11y)
+- Animated `LowSignalLogo` across auth, home header, splash; app renamed to **Low Signal**.
+- Sessionscoped splash screen on first load.
+- Single `<main>` landmark in AppShell, `nav aria-label`, `aria-current` on active tab.
+- `min-h-screen` → `min-h-dvh` for mobile viewport correctness.
+- Tap targets bumped to `min-h-11` on primary nav.
+
+## Next up (Phase 5d — Push delivery + advanced E2EE)
+- Generate VAPID keypair; add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` secrets.
+- Server-side `sendPush(userId, payload)` helper (Web Crypto VAPID JWT, fetch to endpoint).
+- Wire sweep route to notify requester on safety-alert; wire message insert to notify peers.
 - Forward secrecy: ephemeral per-conversation keys or double-ratchet.
 - Key rotation flow + multi-device key sync (encrypted backup).
-- Attach Supabase auth to server functions (for admin/moderator routes).
 
 
 ## Backlog

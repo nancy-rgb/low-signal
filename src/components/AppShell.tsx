@@ -34,24 +34,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
       {!online ? (
-        <div className="bg-yellow-500/20 px-3 py-1 text-center text-xs text-yellow-800">
+        <div role="status" className="bg-yellow-500/20 px-3 py-1 text-center text-xs text-yellow-800">
           Offline — actions saved on this device
         </div>
       ) : (
         // invisible tap target for the secret duress-exit gesture
         <div onClick={maybeExitDuress} className="h-1 w-full" aria-hidden />
       )}
-      <div className="flex-1 pb-16">{children}</div>
-      <nav className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 border-t border-input bg-card">
+      <main className="flex-1 pb-16">{children}</main>
+      <nav aria-label="Primary" className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 border-t border-input bg-card">
         {tabs.map((t) => {
           const active = t.to === "/" ? path === "/" : path.startsWith(t.to);
           return (
             <Link
               key={t.to}
               to={t.to}
-              className={`flex-1 py-3 text-center text-xs ${
+              aria-current={active ? "page" : undefined}
+              className={`flex-1 py-3 text-center text-xs min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${
                 active ? "font-semibold text-primary" : "text-muted-foreground"
               }`}
             >

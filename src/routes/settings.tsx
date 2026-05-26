@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PushSettings } from "@/components/PushSettings";
 import { useAuth } from "@/hooks/use-auth";
 import { session, store, useStore } from "@/lib/requests-store";
 import {
@@ -229,6 +230,9 @@ function Settings() {
             )}
           </div>
         </section>
+
+        <PushSettings />
+
 
         <section className="rounded-md border border-input bg-card p-3 text-sm">
           <div className="mb-2 font-medium">Groups</div>

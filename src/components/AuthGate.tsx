@@ -2,13 +2,14 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/use-auth";
+import LowSignalLogo from "@/components/LowSignalLogo";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
         Loading…
       </div>
     );
@@ -66,8 +67,10 @@ function AuthScreen() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center bg-background p-6">
-      <h1 className="text-2xl font-bold">Lifeline</h1>
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center bg-background p-6">
+      <div className="mb-2">
+        <LowSignalLogo size={40} />
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Mutual aid for activists. Sign in to continue.
       </p>
