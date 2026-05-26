@@ -10,20 +10,45 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VolunteerRouteImport } from './routes/volunteer'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RequestsRouteImport } from './routes/requests'
+import { Route as OffersRouteImport } from './routes/offers'
+import { Route as GroupsRouteImport } from './routes/groups'
+import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VolunteerIdRouteImport } from './routes/volunteer.$id'
 import { Route as RequestNewRouteImport } from './routes/request.new'
 import { Route as RequestIdRouteImport } from './routes/request.$id'
+import { Route as OffersNewRouteImport } from './routes/offers.new'
 
 const VolunteerRoute = VolunteerRouteImport.update({
   id: '/volunteer',
   path: '/volunteer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RequestsRoute = RequestsRouteImport.update({
   id: '/requests',
   path: '/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OffersRoute = OffersRouteImport.update({
+  id: '/offers',
+  path: '/offers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupsRoute = GroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DirectoryRoute = DirectoryRouteImport.update({
+  id: '/directory',
+  path: '/directory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -46,19 +71,34 @@ const RequestIdRoute = RequestIdRouteImport.update({
   path: '/request/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OffersNewRoute = OffersNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => OffersRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/directory': typeof DirectoryRoute
+  '/groups': typeof GroupsRoute
+  '/offers': typeof OffersRouteWithChildren
   '/requests': typeof RequestsRoute
+  '/settings': typeof SettingsRoute
   '/volunteer': typeof VolunteerRouteWithChildren
+  '/offers/new': typeof OffersNewRoute
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/directory': typeof DirectoryRoute
+  '/groups': typeof GroupsRoute
+  '/offers': typeof OffersRouteWithChildren
   '/requests': typeof RequestsRoute
+  '/settings': typeof SettingsRoute
   '/volunteer': typeof VolunteerRouteWithChildren
+  '/offers/new': typeof OffersNewRoute
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
@@ -66,8 +106,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/directory': typeof DirectoryRoute
+  '/groups': typeof GroupsRoute
+  '/offers': typeof OffersRouteWithChildren
   '/requests': typeof RequestsRoute
+  '/settings': typeof SettingsRoute
   '/volunteer': typeof VolunteerRouteWithChildren
+  '/offers/new': typeof OffersNewRoute
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
   '/volunteer/$id': typeof VolunteerIdRoute
@@ -76,24 +121,39 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/directory'
+    | '/groups'
+    | '/offers'
     | '/requests'
+    | '/settings'
     | '/volunteer'
+    | '/offers/new'
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/directory'
+    | '/groups'
+    | '/offers'
     | '/requests'
+    | '/settings'
     | '/volunteer'
+    | '/offers/new'
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
   id:
     | '__root__'
     | '/'
+    | '/directory'
+    | '/groups'
+    | '/offers'
     | '/requests'
+    | '/settings'
     | '/volunteer'
+    | '/offers/new'
     | '/request/$id'
     | '/request/new'
     | '/volunteer/$id'
@@ -101,7 +161,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DirectoryRoute: typeof DirectoryRoute
+  GroupsRoute: typeof GroupsRoute
+  OffersRoute: typeof OffersRouteWithChildren
   RequestsRoute: typeof RequestsRoute
+  SettingsRoute: typeof SettingsRoute
   VolunteerRoute: typeof VolunteerRouteWithChildren
   RequestIdRoute: typeof RequestIdRoute
   RequestNewRoute: typeof RequestNewRoute
@@ -116,11 +180,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VolunteerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/requests': {
       id: '/requests'
       path: '/requests'
       fullPath: '/requests'
       preLoaderRoute: typeof RequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/offers': {
+      id: '/offers'
+      path: '/offers'
+      fullPath: '/offers'
+      preLoaderRoute: typeof OffersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groups': {
+      id: '/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof GroupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/directory': {
+      id: '/directory'
+      path: '/directory'
+      fullPath: '/directory'
+      preLoaderRoute: typeof DirectoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -151,8 +243,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RequestIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/offers/new': {
+      id: '/offers/new'
+      path: '/new'
+      fullPath: '/offers/new'
+      preLoaderRoute: typeof OffersNewRouteImport
+      parentRoute: typeof OffersRoute
+    }
   }
 }
+
+interface OffersRouteChildren {
+  OffersNewRoute: typeof OffersNewRoute
+}
+
+const OffersRouteChildren: OffersRouteChildren = {
+  OffersNewRoute: OffersNewRoute,
+}
+
+const OffersRouteWithChildren =
+  OffersRoute._addFileChildren(OffersRouteChildren)
 
 interface VolunteerRouteChildren {
   VolunteerIdRoute: typeof VolunteerIdRoute
@@ -168,7 +278,11 @@ const VolunteerRouteWithChildren = VolunteerRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DirectoryRoute: DirectoryRoute,
+  GroupsRoute: GroupsRoute,
+  OffersRoute: OffersRouteWithChildren,
   RequestsRoute: RequestsRoute,
+  SettingsRoute: SettingsRoute,
   VolunteerRoute: VolunteerRouteWithChildren,
   RequestIdRoute: RequestIdRoute,
   RequestNewRoute: RequestNewRoute,
@@ -176,3 +290,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
