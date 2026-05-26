@@ -33,7 +33,7 @@ export function randomBytes(n: number): Uint8Array {
 export async function deriveKey(pin: string, salt: Uint8Array): Promise<CryptoKey> {
   const baseKey = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(pin),
+    new TextEncoder().encode(pin) as BufferSource,
     "PBKDF2",
     false,
     ["deriveKey"]
@@ -41,7 +41,7 @@ export async function deriveKey(pin: string, salt: Uint8Array): Promise<CryptoKe
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt,
+      salt: salt as BufferSource,
       iterations: PBKDF2_ITERATIONS,
       hash: "SHA-256",
     },
@@ -55,14 +55,14 @@ export async function deriveKey(pin: string, salt: Uint8Array): Promise<CryptoKe
 export async function encryptJSON(key: CryptoKey, value: unknown, salt: Uint8Array): Promise<EncryptedBlob> {
   const iv = randomBytes(12);
   const plaintext = new TextEncoder().encode(JSON.stringify(value));
-  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, plaintext as BufferSource);
   return { salt: b64encode(salt), iv: b64encode(iv), ct: b64encode(ct) };
 }
 
 export async function decryptJSON<T>(key: CryptoKey, blob: EncryptedBlob): Promise<T> {
   const iv = b64decode(blob.iv);
   const ct = b64decode(blob.ct);
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, ct as BufferSource);
   return JSON.parse(new TextDecoder().decode(pt));
 }
 
