@@ -85,6 +85,7 @@ export interface HelpRequest {
   claim?: VolunteerClaim;
   checkIns: CheckIn[];
   messages: Message[];
+  safetyDeadline?: number; // ms timestamp; if passed without "safe" check-in, alert
 }
 
 export interface Offer {
@@ -110,6 +111,9 @@ export interface User {
   id: string;
   alias: string;
   groupIds: string[];
+  realPin?: string;       // 4-8 digits; if set, lock screen required
+  duressPin?: string;     // different PIN that opens decoy empty state
+  trustedContact?: string; // free text — name + how to reach them
 }
 
 interface AppState {
