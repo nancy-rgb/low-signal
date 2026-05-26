@@ -119,8 +119,8 @@ export interface User {
   id: string;
   alias: string;
   groupIds: string[];
-  realPin?: string;       // 4-8 digits; if set, lock screen required
-  duressPin?: string;     // different PIN that opens decoy empty state
+  pinSet?: boolean;       // real PIN configured — lock screen shown on boot
+  duressSet?: boolean;    // duress PIN configured — decoy slot exists
   trustedContact?: string; // free text — name + how to reach them
 }
 
