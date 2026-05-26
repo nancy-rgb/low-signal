@@ -515,20 +515,15 @@ function subscribeBoth(cb: () => void) {
   };
 }
 
-// Initialize session mode based on whether a real PIN is set.
+// Initialize session mode based on whether the vault has an encrypted real slot.
 if (typeof window !== "undefined") {
-  sessionMode = state.user.realPin ? "locked" : "normal";
+  sessionMode = vault.real ? "locked" : "normal";
 }
 
 function maskedSnapshot(): AppState {
-  // Duress: return decoy empty state, but keep alias so UI still works.
-  if (sessionMode === "duress") {
-    return {
-      user: { ...state.user, groupIds: [] },
-      groups: [],
-      requests: [],
-      offers: [],
-    };
+  // While locked, return a clean empty state (no leakage through the UI tree).
+  if (sessionMode === "locked") {
+    return defaultState();
   }
   return state;
 }
@@ -541,32 +536,77 @@ export const session = {
   getMode(): SessionMode {
     return sessionMode;
   },
-  attemptUnlock(pin: string): "normal" | "duress" | "invalid" {
+  hasRealPin(): boolean {
+    return !!vault.real;
+  },
+  hasDuressPin(): boolean {
+    return !!vault.decoy;
+  },
+  // Try to unlock by attempting decryption against each configured slot.
+  async attemptUnlock(pin: string): Promise<"normal" | "duress" | "invalid"> {
     const p = pin.trim();
     if (!p) return "invalid";
-    if (state.user.realPin && p === state.user.realPin) {
-      sessionMode = "normal";
-      emitSession();
-      return "normal";
+
+    // Try real slot first.
+    if (vault.real) {
+      try {
+        const salt = blobSalt(vault.real);
+        const key = await deriveKey(p, salt);
+        const decrypted = await decryptJSON<AppState>(key, vault.real);
+        state = decrypted;
+        activeKey = key;
+        activeSalt = salt;
+        activeSlot = "real";
+        sessionMode = "normal";
+        emitSession();
+        subs.forEach((s) => s());
+        return "normal";
+      } catch {
+        /* wrong PIN for real slot — try decoy */
+      }
     }
-    if (state.user.duressPin && p === state.user.duressPin) {
-      sessionMode = "duress";
-      emitSession();
-      return "duress";
+
+    if (vault.decoy) {
+      try {
+        const salt = blobSalt(vault.decoy);
+        const key = await deriveKey(p, salt);
+        const decrypted = await decryptJSON<AppState>(key, vault.decoy);
+        state = decrypted;
+        activeKey = key;
+        activeSalt = salt;
+        activeSlot = "decoy";
+        sessionMode = "duress";
+        emitSession();
+        subs.forEach((s) => s());
+        return "duress";
+      } catch {
+        /* wrong PIN for decoy too */
+      }
     }
+
     return "invalid";
   },
   lock() {
-    if (state.user.realPin) {
-      sessionMode = "locked";
-      emitSession();
-    }
+    if (!vault.real) return;
+    // Clear plaintext state from memory.
+    state = defaultState();
+    activeKey = null;
+    activeSalt = null;
+    activeSlot = "real";
+    sessionMode = "locked";
+    emitSession();
+    subs.forEach((s) => s());
   },
-  // Secret gesture: exit duress without re-locking (no UI affordance).
+  // Secret gesture: exit duress and force re-unlock with real PIN.
   exitDuress() {
     if (sessionMode === "duress") {
-      sessionMode = "normal";
+      state = defaultState();
+      activeKey = null;
+      activeSalt = null;
+      activeSlot = "real";
+      sessionMode = vault.real ? "locked" : "normal";
       emitSession();
+      subs.forEach((s) => s());
     }
   },
 };
