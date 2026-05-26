@@ -41,6 +41,7 @@ function Settings() {
     setPinBusy(true);
     try {
       await store.setPins(r || undefined, d || undefined);
+      if (user?.id) await rebindE2EEToPin(user.id);
       setRealPin(""); setDuressPin("");
       setPinMsg("PINs saved.");
     } catch {
