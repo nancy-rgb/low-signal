@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
   HELP_TYPES,
@@ -7,6 +7,7 @@ import {
   useStore,
   formatLoc,
   type CheckInKind,
+  type HelpRequest,
 } from "@/lib/requests-store";
 
 export const Route = createFileRoute("/request/$id")({
@@ -103,6 +104,12 @@ function RequestDetail() {
             {req.claim.meetupPoint && <Row label="Meetup" value={req.claim.meetupPoint} />}
           </section>
         )}
+
+        {/* Safety timer */}
+        {isOwner && req.status !== "completed" && req.status !== "cancelled" && req.status !== "expired" && (
+          <SafetyTimer req={req} />
+        )}
+
 
         {/* Check-ins */}
         {canParticipate && (req.status === "claimed" || req.status === "pending_approval") && (
@@ -203,4 +210,125 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="text-right">{value}</span>
     </div>
   );
+}
+
+function SafetyTimer({ req }: { req: HelpRequest }) {
+  const trustedContact = useStore((s) => s.user.trustedContact);
+  const [, setTick] = useState(0);
+  // Re-render every 30s so countdown stays fresh.
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const hasSafe = req.checkIns.some((c) => c.kind === "safe");
+  const deadline = req.safetyDeadline;
+  const now = Date.now();
+  const overdue = !!deadline && !hasSafe && deadline < now;
+  const remainingMs = deadline ? deadline - now : 0;
+
+  function setIn(minutes: number) {
+    store.setSafetyDeadline(req.id, Date.now() + minutes * 60 * 1000);
+  }
+
+  return (
+    <section
+      className={`space-y-2 rounded-md border p-3 text-sm ${
+        overdue
+          ? "border-destructive bg-destructive/10"
+          : deadline
+            ? "border-input bg-card"
+            : "border-input bg-card"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="font-medium">Safety timer</div>
+        {deadline && !hasSafe && (
+          <button
+            onClick={() => store.setSafetyDeadline(req.id, undefined)}
+            className="text-xs text-muted-foreground underline"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {!deadline && (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Set a deadline. If you don't check in as "Safe" by then, the app flags it
+            {trustedContact ? ` and reminds you to alert ${trustedContact}.` : "."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[15, 30, 60, 120, 240].map((m) => (
+              <button
+                key={m}
+                onClick={() => setIn(m)}
+                className="rounded-md border border-input px-3 py-1.5 text-xs"
+              >
+                +{m < 60 ? `${m}m` : `${m / 60}h`}
+              </button>
+            ))}
+          </div>
+          {!trustedContact && (
+            <p className="text-xs text-muted-foreground">
+              Tip: add a trusted contact in <Link to="/settings" className="underline">Me</Link>.
+            </p>
+          )}
+        </>
+      )}
+
+      {deadline && !hasSafe && !overdue && (
+        <div className="text-xs">
+          Check in by <strong>{new Date(deadline).toLocaleTimeString()}</strong> ·{" "}
+          {formatRemaining(remainingMs)} left
+        </div>
+      )}
+
+      {deadline && hasSafe && (
+        <div className="text-xs text-green-700">
+          You checked in as Safe. Timer cleared automatically.
+        </div>
+      )}
+
+      {overdue && (
+        <div className="space-y-1">
+          <div className="text-xs font-semibold text-destructive">
+            Missed check-in by {formatRemaining(now - deadline)}.
+          </div>
+          {trustedContact ? (
+            <div className="text-xs">
+              Consider alerting your trusted contact: <strong>{trustedContact}</strong>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">
+              No trusted contact set. Add one in Me.
+            </div>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => store.addCheckIn(req.id, "safe")}
+              className="flex-1 rounded-md bg-green-600 px-3 py-2 text-xs font-semibold text-white"
+            >
+              I'm safe
+            </button>
+            <button
+              onClick={() => setIn(30)}
+              className="flex-1 rounded-md border border-input px-3 py-2 text-xs"
+            >
+              Extend 30m
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function formatRemaining(ms: number) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }

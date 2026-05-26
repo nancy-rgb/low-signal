@@ -6,6 +6,7 @@ export type HelpType =
   | "secure_travel"
   | "supplies"
   | "medical"
+  | "medical_supplies"
   | "legal"
   | "message_relay"
   | "other";
@@ -14,7 +15,8 @@ export const HELP_TYPES: { id: HelpType; label: string; hint: string }[] = [
   { id: "safe_shelter", label: "Safe shelter", hint: "Temporary place to stay" },
   { id: "secure_travel", label: "Secure travel", hint: "Help moving to another location" },
   { id: "supplies", label: "Supplies", hint: "Food, water, clothing, hygiene" },
-  { id: "medical", label: "Medical", hint: "First aid, medication, doctor contact" },
+  { id: "medical", label: "Medical help", hint: "First aid, treatment, doctor contact" },
+  { id: "medical_supplies", label: "Medical supplies", hint: "Medication, bandages, equipment" },
   { id: "legal", label: "Legal aid", hint: "Lawyer or legal advice" },
   { id: "message_relay", label: "Pass a message", hint: "Relay a message to a contact" },
   { id: "other", label: "Other", hint: "Describe in notes" },
@@ -27,6 +29,7 @@ export const OFFER_TYPES: { id: OfferType; label: string }[] = [
   { id: "transport", label: "Driving / transport" },
   { id: "supplies", label: "Supplies to share" },
   { id: "medical", label: "Medical skills" },
+  { id: "medical_supplies", label: "Medical supplies to share" },
   { id: "legal", label: "Legal skills" },
   { id: "message_relay", label: "Can relay messages" },
   { id: "other", label: "Other" },
@@ -82,6 +85,7 @@ export interface HelpRequest {
   claim?: VolunteerClaim;
   checkIns: CheckIn[];
   messages: Message[];
+  safetyDeadline?: number; // ms timestamp; if passed without "safe" check-in, alert
 }
 
 export interface Offer {
@@ -107,6 +111,9 @@ export interface User {
   id: string;
   alias: string;
   groupIds: string[];
+  realPin?: string;       // 4-8 digits; if set, lock screen required
+  duressPin?: string;     // different PIN that opens decoy empty state
+  trustedContact?: string; // free text — name + how to reach them
 }
 
 interface AppState {
@@ -177,6 +184,23 @@ export const store = {
   // User
   setAlias(alias: string) {
     set((s) => ({ ...s, user: { ...s.user, alias } }));
+  },
+  setTrustedContact(contact: string) {
+    set((s) => ({ ...s, user: { ...s.user, trustedContact: contact || undefined } }));
+  },
+  setPins(realPin: string | undefined, duressPin: string | undefined) {
+    set((s) => ({
+      ...s,
+      user: { ...s.user, realPin: realPin || undefined, duressPin: duressPin || undefined },
+    }));
+  },
+  setSafetyDeadline(id: string, deadline: number | undefined) {
+    set((s) => ({
+      ...s,
+      requests: s.requests.map((r) =>
+        r.id === id ? { ...r, safetyDeadline: deadline } : r
+      ),
+    }));
   },
 
   // Groups
@@ -331,9 +355,92 @@ export const store = {
 
 export function useStore<T>(selector: (s: AppState) => T): T {
   return useSyncExternalStore(
-    store.subscribe,
-    () => selector(store.getSnapshot()),
+    subscribeBoth,
+    () => selector(maskedSnapshot()),
     () => selector(store.getServerSnapshot())
+  );
+}
+
+// ---------- Session (lock + duress mode), in-memory only ----------
+export type SessionMode = "locked" | "normal" | "duress";
+
+let sessionMode: SessionMode = "normal";
+const sessionSubs = new Set<() => void>();
+
+function emitSession() {
+  sessionSubs.forEach((s) => s());
+}
+
+function subscribeBoth(cb: () => void) {
+  subs.add(cb);
+  sessionSubs.add(cb);
+  return () => {
+    subs.delete(cb);
+    sessionSubs.delete(cb);
+  };
+}
+
+// Initialize session mode based on whether a real PIN is set.
+if (typeof window !== "undefined") {
+  sessionMode = state.user.realPin ? "locked" : "normal";
+}
+
+function maskedSnapshot(): AppState {
+  // Duress: return decoy empty state, but keep alias so UI still works.
+  if (sessionMode === "duress") {
+    return {
+      user: { ...state.user, groupIds: [] },
+      groups: [],
+      requests: [],
+      offers: [],
+    };
+  }
+  return state;
+}
+
+export const session = {
+  subscribe(cb: () => void) {
+    sessionSubs.add(cb);
+    return () => sessionSubs.delete(cb);
+  },
+  getMode(): SessionMode {
+    return sessionMode;
+  },
+  attemptUnlock(pin: string): "normal" | "duress" | "invalid" {
+    const p = pin.trim();
+    if (!p) return "invalid";
+    if (state.user.realPin && p === state.user.realPin) {
+      sessionMode = "normal";
+      emitSession();
+      return "normal";
+    }
+    if (state.user.duressPin && p === state.user.duressPin) {
+      sessionMode = "duress";
+      emitSession();
+      return "duress";
+    }
+    return "invalid";
+  },
+  lock() {
+    if (state.user.realPin) {
+      sessionMode = "locked";
+      emitSession();
+    }
+  },
+  // Secret gesture: exit duress without re-locking (no UI affordance).
+  exitDuress() {
+    if (sessionMode === "duress") {
+      sessionMode = "normal";
+      emitSession();
+    }
+  },
+};
+
+export function useSessionMode(): SessionMode {
+  return useSyncExternalStore(
+    session.subscribe,
+    () => sessionMode,
+    () => "normal" as SessionMode
   );
 }
 
