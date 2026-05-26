@@ -68,12 +68,17 @@ Tracking what's planned, in progress, and intentionally deferred.
 - `min-h-screen` → `min-h-dvh` for mobile viewport correctness.
 - Tap targets bumped to `min-h-11` on primary nav.
 
-## Next up (Phase 5d — Push delivery + advanced E2EE)
-- Generate VAPID keypair; add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` secrets.
-- Server-side `sendPush(userId, payload)` helper (Web Crypto VAPID JWT, fetch to endpoint).
-- Wire sweep route to notify requester on safety-alert; wire message insert to notify peers.
+## Done (Phase 5d — Push delivery)
+- VAPID secrets configured (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`).
+- `src/lib/push.server.ts` — Web Push delivery via `@block65/webcrypto-web-push` (edge-compatible). Prunes dead 404/410 endpoints.
+- `getVapidPublicKey` serverFn exposes public key to the client (no env-prefix needed).
+- Sweep route pushes the requester when their safety check-in lapses.
+- `useSendMessage` fires `notifyMessagePeers` to push the other request participants on each new message.
+
+## Next up (Phase 5e — Advanced E2EE)
 - Forward secrecy: ephemeral per-conversation keys or double-ratchet.
 - Key rotation flow + multi-device key sync (encrypted backup).
+- Push email transport: hook actual email send into safety alerts (needs email domain).
 
 
 ## Backlog
