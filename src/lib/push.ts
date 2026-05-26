@@ -1,10 +1,20 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { getVapidPublicKey } from "./push.functions";
 
-// Public VAPID key — safe to expose. Server holds the matching private key.
-// If unset, push features quietly no-op until secrets are configured.
-const VAPID_PUBLIC = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+// Cache the VAPID public key once fetched.
+let vapidPublicCache: string | null | undefined;
+async function loadVapidPublic(): Promise<string | null> {
+  if (vapidPublicCache !== undefined) return vapidPublicCache;
+  try {
+    const { publicKey } = await getVapidPublicKey();
+    vapidPublicCache = publicKey ?? null;
+  } catch {
+    vapidPublicCache = null;
+  }
+  return vapidPublicCache;
+}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
