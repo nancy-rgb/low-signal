@@ -130,7 +130,7 @@ export function useEnsureKeypair() {
         savePrivJwk(user.id, priv);
         await supabase
           .from("profiles")
-          .update({ public_key: pub })
+          .update({ public_key: pub as any })
           .eq("id", user.id);
       } catch (e) {
         // eslint-disable-next-line no-console
