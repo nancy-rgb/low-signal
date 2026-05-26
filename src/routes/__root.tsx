@@ -10,7 +10,7 @@ import {
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthGate } from "@/components/AuthGate";
-import { useEnsureKeypair } from "@/lib/e2ee";
+import { useEnsureKeypair, useBindE2EEToPin } from "@/lib/e2ee";
 
 import appCss from "../styles.css?url";
 
