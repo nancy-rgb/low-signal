@@ -418,11 +418,79 @@ export const store = {
     set((s) => ({ ...s, offers: s.offers.filter((o) => o.id !== id) }));
   },
 
-  // Panic
+  // Panic — wipe everything (both slots) from disk and memory.
   wipe() {
-    if (typeof window !== "undefined") localStorage.removeItem(KEY);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(VAULT_KEY);
+      localStorage.removeItem(LEGACY_KEY);
+    }
+    vault = { version: 3 };
     state = defaultState();
+    activeKey = null;
+    activeSalt = null;
+    activeSlot = "plain";
+    sessionMode = "normal";
+    emitSession();
     emit();
+  },
+
+  // ----- PIN / encryption management -----
+  // Set / change / clear the real and duress PINs.
+  // Called only while mode === "normal" (caller can verify with session.getMode()).
+  async setPins(realPin: string | undefined, duressPin: string | undefined): Promise<void> {
+    // 1. Real PIN: enable, change, or disable encryption.
+    if (realPin) {
+      const salt = randomBytes(16);
+      const key = await deriveKey(realPin, salt);
+      activeKey = key;
+      activeSalt = salt;
+      activeSlot = "real";
+      state = { ...state, user: { ...state.user, pinSet: true } };
+      const blob = await encryptJSON(key, state, salt);
+      vault = { version: 3, real: blob, decoy: vault.decoy };
+      writeVault();
+    } else {
+      // Removing real PIN => fall back to plaintext storage, also wipe decoy.
+      activeKey = null;
+      activeSalt = null;
+      activeSlot = "plain";
+      state = {
+        ...state,
+        user: { ...state.user, pinSet: false, duressSet: false },
+      };
+      vault = { version: 3, plain: state };
+      writeVault();
+      // duressPin argument is ignored when real PIN is cleared.
+      subs.forEach((s) => s());
+      return;
+    }
+
+    // 2. Duress PIN: create / replace / clear the decoy slot.
+    if (duressPin) {
+      const dSalt = randomBytes(16);
+      const dKey = await deriveKey(duressPin, dSalt);
+      // Fresh decoy: empty state with a fresh anonymous user. The attacker
+      // can interact with it freely; nothing leaks to the real slot.
+      const decoyState: AppState = {
+        ...defaultState(),
+        user: { ...defaultState().user, duressSet: true },
+      };
+      const decoyBlob = await encryptJSON(dKey, decoyState, dSalt);
+      vault = { ...vault, decoy: decoyBlob };
+      state = { ...state, user: { ...state.user, duressSet: true } };
+      // Re-persist real slot to capture duressSet flag.
+      const realBlob = await encryptJSON(activeKey!, state, activeSalt!);
+      vault = { ...vault, real: realBlob };
+      writeVault();
+    } else if (vault.decoy) {
+      vault = { ...vault, decoy: undefined };
+      state = { ...state, user: { ...state.user, duressSet: false } };
+      const realBlob = await encryptJSON(activeKey!, state, activeSalt!);
+      vault = { ...vault, real: realBlob };
+      writeVault();
+    }
+
+    subs.forEach((s) => s());
   },
 };
 
