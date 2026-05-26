@@ -3,6 +3,7 @@ import { useState } from "react";
 import { getCurrentLocation, type Coords } from "@/lib/geo";
 import { AppShell } from "@/components/AppShell";
 import { MicButton } from "@/components/MicButton";
+import { VoiceIntake } from "@/components/VoiceIntake";
 import {
   HELP_TYPES,
   useCreateRequest,
