@@ -18,8 +18,8 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Safety timer (per-request check-in deadline + trusted contact) — v0.3
 
 ## Done (Phase 1 — Cloud auth & schema)
-- Lovable Cloud wired: profiles, groups, requests, claims, offers tables with RLS
-- Google OAuth + email/password auth
+- Supabase wired: profiles, groups, requests, claims, offers tables with RLS
+- Email/password auth (Google OAuth removed during Lovable decoupling — see Phase 6)
 - Auto-profile creation on signup
 - AuthGate component + useAuth hook
 
@@ -75,6 +75,18 @@ Tracking what's planned, in progress, and intentionally deferred.
 - Sweep route pushes the requester when their safety check-in lapses.
 - `useSendMessage` fires `notifyMessagePeers` to push the other request participants on each new message.
 
+## Done (Phase 6 — Lovable decoupling)
+- Hosting moved from Lovable to Cloudflare Workers (Workers Builds Git integration; `wrangler.jsonc` worker `low-signal`).
+- AI provider swapped: `@lovable.dev/cloud-auth-js` AI gateway → `@ai-sdk/anthropic` (Claude Haiku 4.5) in `intake.functions.ts` + `ai-gateway.server.ts`.
+- Supabase project migrated from Lovable-managed to user-owned (`bhyrzuuzcbydqxaungrc.supabase.co`); 11 migrations applied; pgcrypto extension enabled in `extensions` schema with search_path fix.
+- Worker secrets moved to Cloudflare: SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, SWEEP_SECRET.
+- Google OAuth button removed from `AuthGate.tsx` (depended on Lovable's `/~oauth/initiate` broker). Email/password sign-in retained.
+
+## Lovable dependencies still present (Phase 6 follow-ups)
+- `@lovable.dev/cloud-auth-js` still imported by `src/integrations/lovable/index.ts` and referenced from auth setup. Currently unused after Google removal, but the package is still installed. **Next:** delete `src/integrations/lovable/` entirely + drop the dependency.
+- Migrations still carry `Lovable-Edit-ID` metadata in commit messages from earlier history. Cosmetic only.
+- No native Supabase Google OAuth wired yet. **Next** (if Google sign-in is wanted again): configure Google OAuth in Google Cloud Console → Supabase Auth → swap call site to `supabase.auth.signInWithOAuth({ provider: "google" })`.
+
 ## Next up (Phase 5e — Advanced E2EE)
 - Forward secrecy: ephemeral per-conversation keys or double-ratchet.
 - Key rotation flow + multi-device key sync (encrypted backup).
@@ -84,7 +96,7 @@ Tracking what's planned, in progress, and intentionally deferred.
 ## Backlog
 - Volunteer skill tags (medical, legal, driver, translator, shelter, supplies) → smarter routing **(done — profile.skills + "Match my skills" filter on volunteer page)**
 - Voice dictation on request form (per-field mic, Web Speech API) **(done)**
-- Conversational voice intake — AI-parsed free-form speech fills the whole request form (Lovable AI Gateway) **(done — `VoiceIntake` on request form; Gemini 3 flash via Lovable AI; PII-stripping system prompt)**
+- Conversational voice intake — AI-parsed free-form speech fills the whole request form **(done — `VoiceIntake` on request form; Claude Haiku 4.5 via `@ai-sdk/anthropic`; PII-stripping system prompt)**
 - Capacity hints on volunteers (can host N, has vehicle)
 - Multi-volunteer chains (travel handoff across cells)
 - Manual map-pin entry (avoid live GPS share)
