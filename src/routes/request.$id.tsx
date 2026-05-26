@@ -255,7 +255,15 @@ function RequestDetail() {
                   <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs ${isMe ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
                       <div className="mb-0.5 text-[10px] opacity-70">{aliasMap[m.sender_id] ?? "—"}</div>
-                      {m.ciphertext.startsWith("{\"v\":") ? <EncryptedMessage ciphertext={m.ciphertext} /> : m.ciphertext}
+                      {isE2EEEnvelope(m.ciphertext) ? (
+                        <DecryptedMessage
+                          ciphertext={m.ciphertext}
+                          myUserId={user?.id}
+                          peerPubKey={peerPubKey ?? null}
+                        />
+                      ) : (
+                        m.ciphertext
+                      )}
                       <div className="mt-0.5 text-right text-[10px] opacity-60">
                         {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </div>
@@ -264,6 +272,7 @@ function RequestDetail() {
                 );
               })}
               <div ref={msgEndRef} />
+
             </div>
             <div className="mt-2 flex gap-2">
               <input
