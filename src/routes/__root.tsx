@@ -129,6 +129,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   useEnsureKeypair();
   useBindE2EEToPin();
+  usePushAutoResubscribe();
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       qc.invalidateQueries();
@@ -136,5 +137,9 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
     });
     return () => subscription.unsubscribe();
   }, [qc, router]);
-  return <AuthGate>{children}</AuthGate>;
+  return (
+    <Splash>
+      <AuthGate>{children}</AuthGate>
+    </Splash>
+  );
 }
