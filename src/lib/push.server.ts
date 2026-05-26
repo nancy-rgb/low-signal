@@ -53,7 +53,11 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       };
       try {
         const req = await buildPushPayload(message, subscription, vapid);
-        const res = await fetch(subscription.endpoint, req);
+        const res = await fetch(subscription.endpoint, {
+          method: req.method,
+          headers: req.headers,
+          body: new Uint8Array(req.body).buffer as ArrayBuffer,
+        });
         if (res.status >= 200 && res.status < 300) {
           delivered += 1;
         } else if (res.status === 404 || res.status === 410) {
