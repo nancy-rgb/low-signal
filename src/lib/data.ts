@@ -122,7 +122,7 @@ export function useUpdateProfile() {
   const qc = useQueryClient();
   const uid = useUserId();
   return useMutation({
-    mutationFn: async (patch: { alias?: string }) => {
+    mutationFn: async (patch: { alias?: string; skills?: string[] }) => {
       if (!uid) throw new Error("not signed in");
       const { error } = await supabase
         .from("profiles")
@@ -132,6 +132,30 @@ export function useUpdateProfile() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["profile"] }),
   });
+}
+
+// ---------- Skills ----------
+export type Skill = "medical" | "legal" | "driver" | "translator" | "shelter" | "supplies";
+
+export const SKILLS: { id: Skill; label: string; hint: string }[] = [
+  { id: "medical", label: "Medical", hint: "First aid, nursing, doctor" },
+  { id: "legal", label: "Legal", hint: "Lawyer, paralegal, rights" },
+  { id: "driver", label: "Driver", hint: "Vehicle, transport help" },
+  { id: "translator", label: "Translator", hint: "Multiple languages" },
+  { id: "shelter", label: "Shelter", hint: "Can host people" },
+  { id: "supplies", label: "Supplies", hint: "Food, water, hygiene" },
+];
+
+/** Which help_types a given skill is well-suited for. */
+export function skillMatchesHelpType(skill: Skill, help: HelpType): boolean {
+  switch (skill) {
+    case "medical": return help === "medical" || help === "medical_supplies";
+    case "legal": return help === "legal";
+    case "driver": return help === "secure_travel";
+    case "shelter": return help === "safe_shelter";
+    case "supplies": return help === "supplies" || help === "medical_supplies";
+    case "translator": return help === "message_relay";
+  }
 }
 
 // ---------- Groups ----------
