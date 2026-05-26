@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendPushToUser } from "@/lib/push.server";
 
 export const Route = createFileRoute("/api/public/sweep")({
   server: {
