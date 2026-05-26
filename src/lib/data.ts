@@ -605,6 +605,12 @@ export function useSendMessage() {
         ciphertext: input.ciphertext,
       });
       if (error) throw error;
+      // Fire-and-forget push notify; never block message send on it.
+      import("./push.functions")
+        .then(({ notifyMessagePeers }) =>
+          notifyMessagePeers({ data: { requestId: input.request_id } }).catch(() => {}),
+        )
+        .catch(() => {});
     },
     onSuccess: (_r, v) => {
       qc.invalidateQueries({ queryKey: ["messages", v.request_id] });
