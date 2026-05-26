@@ -131,12 +131,6 @@ interface AppState {
   offers: Offer[];
 }
 
-// ---------- Storage ----------
-const KEY = "lov_state_v2";
-
-function genId(n = 8) {
-  return Math.random().toString(36).slice(2, 2 + n);
-}
 
 // ---------- Storage / vault ----------
 // Disk format v3: { version: 3, plain?: AppState, real?: EncryptedBlob, decoy?: EncryptedBlob }
