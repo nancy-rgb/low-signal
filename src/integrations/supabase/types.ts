@@ -314,6 +314,54 @@ export type Database = {
           },
         ]
       }
+      safety_alerts: {
+        Row: {
+          alerted_at: string
+          contacts_notified: number
+          delivered: boolean
+          request_id: string
+          requester_id: string
+        }
+        Insert: {
+          alerted_at?: string
+          contacts_notified?: number
+          delivered?: boolean
+          request_id: string
+          requester_id: string
+        }
+        Update: {
+          alerted_at?: string
+          contacts_notified?: number
+          delivered?: boolean
+          request_id?: string
+          requester_id?: string
+        }
+        Relationships: []
+      }
+      trusted_contacts: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          label: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          label: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          label?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -367,6 +415,7 @@ export type Database = {
         Args: never
         Returns: {
           expired_count: number
+          new_alerts: number
           safety_alert_count: number
         }[]
       }
